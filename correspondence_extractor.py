@@ -45,6 +45,16 @@ _REASONING_RE = re.compile(
 # Minimum reasoning-keyword hits to accept a paragraph
 _MIN_HITS = 2
 
+# ---------------------------------------------------------------------------
+# Quality-score calibration constants
+# ---------------------------------------------------------------------------
+_QUALITY_DENSITY_SCALE = 30    # 1 keyword per _QUALITY_DENSITY_SCALE words → density=1.0
+_QUALITY_MAX_WORDS = 200       # passage word count at which length score saturates
+_QUALITY_MAX_VARIETY = 6       # unique keyword types at which variety score saturates
+_QUALITY_DENSITY_WEIGHT = 0.5  # weight for keyword density component
+_QUALITY_LENGTH_WEIGHT = 0.3   # weight for text length component
+_QUALITY_VARIETY_WEIGHT = 0.2  # weight for keyword variety component
+
 
 def _collect_text(elem) -> str:
     """Recursively collect all text inside an XML element."""
@@ -64,6 +74,43 @@ def _strip_ns(tag: str) -> str:
 
 def _has_reasoning(text: str, min_hits: int = _MIN_HITS) -> bool:
     return len(_REASONING_RE.findall(text)) >= min_hits
+
+
+def _compute_quality_score(text: str) -> float:
+    """
+    Compute a quality score in [0.0, 1.0] for a reasoning passage.
+
+    Uses three signals rather than raw keyword count alone:
+    - **Keyword density**: reasoning-keyword hits per word (not absolute count).
+      A long passage with 5 "therefore"s and a short one with 5 "therefore"s
+      are not equally valuable.
+    - **Text length**: longer passages tend to contain more complete reasoning
+      chains.  Saturates at _QUALITY_MAX_WORDS words.
+    - **Keyword variety**: unique reasoning-keyword types reward breadth of
+      logical structure (e.g. "therefore" + "because" + "conclude" is richer
+      than ten occurrences of "therefore" alone).  Saturates at
+      _QUALITY_MAX_VARIETY unique types.
+
+    The three signals are combined with weights defined by
+    _QUALITY_DENSITY_WEIGHT / _QUALITY_LENGTH_WEIGHT / _QUALITY_VARIETY_WEIGHT.
+    """
+    words = text.split()
+    if not words:
+        return 0.0
+    keyword_hits = _REASONING_RE.findall(text)
+    # Density: 1 hit per _QUALITY_DENSITY_SCALE words = perfect density score
+    density_score = min(1.0, len(keyword_hits) / max(len(words), 1) * _QUALITY_DENSITY_SCALE)
+    # Length: _QUALITY_MAX_WORDS+ words = maximum length score
+    length_score = min(1.0, len(words) / _QUALITY_MAX_WORDS)
+    # Variety: _QUALITY_MAX_VARIETY+ unique keyword types = maximum variety score
+    unique_keywords = len({kw.lower() for kw in keyword_hits})
+    variety_score = min(1.0, unique_keywords / _QUALITY_MAX_VARIETY)
+    return round(
+        _QUALITY_DENSITY_WEIGHT * density_score
+        + _QUALITY_LENGTH_WEIGHT * length_score
+        + _QUALITY_VARIETY_WEIGHT * variety_score,
+        4,
+    )
 
 
 def _extract_participants(root: ET.Element) -> List[str]:
@@ -185,11 +232,11 @@ class CorrespondenceExtractor(BaseExtractor):
             raw_text=text,
             source_url=source,
             doc_type="correspondence",
-            tier=classify_tier(text),
+            tier=classify_tier(text, doc_type="correspondence"),
             structural_prior=tag_prior(text),
             domain=["cross_domain"],
             participants=participants,
-            quality_score=min(1.0, len(_REASONING_RE.findall(text)) / 10),
+            quality_score=_compute_quality_score(text),
             license_=license_,
             agent_id=self.agent_id,
         )

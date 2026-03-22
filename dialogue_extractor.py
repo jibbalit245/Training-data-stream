@@ -187,14 +187,7 @@ class DialogueExtractor(BaseExtractor):
             raw_text=text,
             source_url=source,
             doc_type=doc_type,
-            tier=classify_tier(text),
-            structural_prior=tag_prior(text),
-            domain=["philosophy"],
-            participants=participants,
-            quality_score=min(1.0, (
-                len(_PHILOSOPHY_RE.findall(text))
-                + len(_CHALLENGE_RE.findall(text))
-            ) / 15),
+            tier=classify_tier(text, doc_type=doc_type),
             license_="public_domain",
             agent_id=self.agent_id,
         )

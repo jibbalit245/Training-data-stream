@@ -22,7 +22,7 @@ Output schema (per record)
     ],
     "metadata": {
         "tier": 1,                       # 1-5
-        "structural_prior": 3,           # 1-9
+        "structural_prior": 3,           # 0-9  (0 = untagged, 1-9 = specific prior)
         "domain": ["physics", "math"],
         "doc_type": "correspondence",
         "participants": ["darwin", "hooker"],
@@ -33,6 +33,17 @@ Output schema (per record)
         "agent_id": "agent_001"
     }
 }
+
+Assistant-turn placeholder
+--------------------------
+The ``assistant`` turn in every record currently holds a placeholder string.
+This is intentional scaffolding for a later synthetic-data generation phase
+(e.g. using a larger model to produce analysis completions).  For pre-training
+the ``text`` field carries the training signal; the ``messages`` structure is
+preserved for the subsequent SFT / fine-tuning phase.  If the data is fed
+directly into a pre-training mixture the placeholder assistant turn is harmless
+because the model will be trained on the full ChatML-formatted ``text`` field,
+not on isolated turns.
 """
 
 from __future__ import annotations
@@ -74,7 +85,8 @@ network_retry = retry(
 # Valid metadata values
 # ---------------------------------------------------------------------------
 VALID_TIERS = {1, 2, 3, 4, 5}
-VALID_PRIORS = set(range(1, 10))
+# 0 = untagged (no structural-prior signals detected); 1-9 = specific priors
+VALID_PRIORS = {0} | set(range(1, 10))
 VALID_DOMAINS = {
     "physics", "math", "biology", "chemistry", "economics",
     "psychology", "engineering", "computer_science", "philosophy", "cross_domain",

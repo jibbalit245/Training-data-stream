@@ -1,9 +1,10 @@
 """
 prior_tagger.py
-Heuristic identification of the structural prior (1-9) for an extracted passage.
+Heuristic identification of the structural prior (0-9) for an extracted passage.
 
 Structural prior codes
 ----------------------
+0 = untagged             (no structural-prior signals detected)
 1 = holographic_projection / duality
 2 = tool_as_cognitive_prosthetic
 3 = symmetry_breaking
@@ -13,6 +14,10 @@ Structural prior codes
 7 = feedback_loops / control_theory
 8 = information_geometry
 9 = renormalization_group
+
+Code 0 is intentionally distinct from code 1 so that the dream-state training
+process can distinguish "this passage is genuinely about duality / holographic
+projection" (code 1) from "we could not detect a structural prior" (code 0).
 """
 
 from __future__ import annotations
@@ -80,26 +85,29 @@ _PRIOR_PATTERNS = {
 
 def tag_prior(text: str) -> int:
     """
-    Return the structural prior code (1-9) with the highest keyword density.
+    Return the structural prior code (0-9) with the highest keyword density.
 
     Ties broken by lower code (code 1 wins over 2, etc.).
-    Default is 1 if no signals found.
+    Returns 0 ("untagged") when no structural-prior signals are detected,
+    so that downstream processes can distinguish genuinely classified passages
+    from passages that could not be tagged.
 
     Returns
     -------
     int
-        An integer in the range [1, 9]:
+        An integer in the range [0, 9]:
+        0=untagged (no signals detected),
         1=holographic_projection/duality, 2=tool_as_cognitive_prosthetic,
         3=symmetry_breaking, 4=emergence/phase_transitions,
         5=dimensional_analysis, 6=conservation_laws,
         7=feedback_loops/control_theory, 8=information_geometry,
-        9=renormalization_group.  Default is 1 when no signals are found.
+        9=renormalization_group.
     """
     scores = {code: len(pat.findall(text)) for code, pat in _PRIOR_PATTERNS.items()}
     max_score = max(scores.values())
     if max_score == 0:
-        return 1
+        return 0  # untagged: no structural-prior signals detected
     for code in sorted(scores.keys()):
         if scores[code] == max_score:
             return code
-    return 1
+    return 0

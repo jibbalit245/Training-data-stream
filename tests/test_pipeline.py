@@ -570,3 +570,178 @@ class TestMetadataAccuracy:
             assert required_keys.issubset(rec["metadata"].keys()), (
                 f"Missing keys: {required_keys - set(rec['metadata'].keys())}"
             )
+
+
+# ===========================================================================
+# Test 6: Improvements to tier classifier, prior tagger, and quality score
+# ===========================================================================
+class TestClassifierImprovements:
+    """Validate the upgraded heuristics for tier, prior, and quality scoring."""
+
+    # ------------------------------------------------------------------
+    # Prior tagger: default 0 (untagged)
+    # ------------------------------------------------------------------
+
+    def test_prior_tagger_no_signals_returns_zero(self):
+        """tag_prior returns 0 (untagged) when no structural-prior keywords match."""
+        generic = (
+            "This is a general discussion about events in the world. "
+            "People do many things and life goes on in various ways. "
+            "There is no particular scientific or mathematical framework here."
+        )
+        assert tag_prior(generic) == 0
+
+    def test_prior_zero_is_in_valid_priors(self):
+        """VALID_PRIORS now includes 0 so that untagged records pass schema checks."""
+        assert 0 in VALID_PRIORS
+
+    def test_make_record_with_prior_zero_is_valid(self):
+        """A record with structural_prior=0 passes schema validation."""
+        rec = make_record(
+            raw_text="Some text about general topics.",
+            source_url="test://generic",
+            doc_type="dialogue",
+            structural_prior=0,
+            agent_id="agent_test",
+        )
+        assert rec["metadata"]["structural_prior"] == 0
+        assert rec["metadata"]["structural_prior"] in VALID_PRIORS
+
+    def test_prior_tagger_still_classifies_specific_signals(self):
+        """After default change to 0, specific prior signals still return correct codes."""
+        feedback_text = (
+            "The feedback loop maintains homeostasis through negative feedback. "
+            "The control system uses a PID controller for stability. "
+            "The cybernetic regulation ensures the attractor state is reached."
+        )
+        assert tag_prior(feedback_text) == 7
+
+    # ------------------------------------------------------------------
+    # Tier classifier: doc_type hint and reasoning chain density
+    # ------------------------------------------------------------------
+
+    def test_tier_classifier_correspondence_hint_prevents_tier3_misclassification(self):
+        """
+        Mixed reasoning+observation text with doc_type='correspondence' stays tier 1/2.
+
+        Without the doc_type hint and chain-density scoring, high observation/experiment
+        keyword counts would push primary reasoning documents into tier 3.
+        """
+        reasoning_correspondence = (
+            "My dear Hooker, I observed therefore that the hypothesis of natural selection "
+            "provides evidence. The observation and experiment confirm what I argued. Hence I "
+            "believe the model explains the variation. Through observation of many species I "
+            "conclude the theory. The experiments I described support the hypothesis therefore. "
+            "Because the observations showed clear patterns, I believe the model must be correct."
+        )
+        tier = classify_tier(reasoning_correspondence, doc_type="correspondence")
+        assert tier in {1, 2}, (
+            f"Correspondence with dense reasoning should be tier 1 or 2, got {tier}"
+        )
+
+    def test_tier_classifier_pure_applied_wins_without_foundational_signals(self):
+        """
+        Pure applied-model text (no logical connectors, no foundational tier keywords)
+        is correctly classified as tier 3 even with doc_type='correspondence'.
+        """
+        applied_only = (
+            "Let us apply the formula F=ma to this example. We calculate the acceleration. "
+            "For instance if mass is 2 and force is 10 then a equals 5. We compute velocity "
+            "using v=at. In practice we simulate this numerically and the model agrees."
+        )
+        assert classify_tier(applied_only, doc_type="correspondence") == 3
+
+    def test_tier_classifier_dialogue_hint_boosts_foundational(self):
+        """doc_type='dialogue' boosts tier 1/2 for Socratic texts with logical structure."""
+        socratic = (
+            "SOCRATES: Therefore it follows from what we agreed that virtue cannot be taught "
+            "unless it is a form of knowledge. Hence the argument leads us to conclude "
+            "that wisdom is the foundation of all virtue. It follows that the wise man "
+            "necessarily acts well."
+        )
+        tier = classify_tier(socratic, doc_type="dialogue")
+        assert tier in {1, 2}, f"Socratic text should be tier 1 or 2, got {tier}"
+
+    def test_tier_classifier_synthesis_hint_accepts_tier5(self):
+        """Synthesis-heavy text with doc_type='synthesis' returns tier 5."""
+        synthesis_text = (
+            "This synthesis draws a bridge between quantum mechanics and information theory. "
+            "The analogy reveals a cross-domain connection: the paradigm of entropy provides "
+            "a unifying framework. The perspective shifts when we reflect on what this suggests "
+            "about the broader implication for the field. In summary, this insight connects "
+            "two previously separate domains through a powerful analogy and meta-analysis."
+        )
+        assert classify_tier(synthesis_text, doc_type="synthesis") == 5
+
+    def test_tier_classifier_no_hint_backward_compatible(self):
+        """classify_tier with no doc_type still returns valid tiers for all existing test texts."""
+        # The previously passing test texts must still work without doc_type
+        axiom_text = (
+            "By definition, we assume that this axiom holds as a first principle. "
+            "Let us define the fundamental postulate: given that this premise is true, "
+            "suppose that the definition applies universally. A priori this must hold."
+        )
+        proof_text = (
+            "Theorem: for all n, P(n) holds. Proof by induction. "
+            "Therefore it follows that the lemma is satisfied. "
+            "By induction the corollary is proved. QED. "
+            "Hence the result follows from the theorem."
+        )
+        assert classify_tier(axiom_text) == 1
+        assert classify_tier(proof_text) == 2
+
+    # ------------------------------------------------------------------
+    # Quality score: density + length + variety
+    # ------------------------------------------------------------------
+
+    def test_quality_score_not_saturated_by_single_keyword_repetition(self):
+        """
+        Repeating one keyword 10 times should NOT yield quality_score=1.0 any more.
+
+        The old formula ``min(1.0, hits / 10)`` gave a perfect score for any text
+        that contains 10 occurrences of a single reasoning keyword, regardless of
+        length or variety.  The new formula uses density, length, and variety.
+        """
+        from correspondence_extractor import _compute_quality_score
+
+        repetitive = " ".join(["therefore"] * 10)
+        score = _compute_quality_score(repetitive)
+        # Should be well below 1.0: high density but very short and zero variety
+        assert score < 1.0, (
+            f"Repetitive single-keyword text should not achieve perfect score; got {score}"
+        )
+
+    def test_quality_score_rewards_diverse_reasoning_vocabulary(self):
+        """
+        A passage with varied reasoning keywords scores higher than one with only repeats.
+        """
+        from correspondence_extractor import _compute_quality_score
+
+        repetitive = " ".join(["therefore"] * 10)
+        diverse = (
+            "I believe the hypothesis is supported by evidence. Therefore the argument holds. "
+            "Hence we conclude that the theory is correct. Because of this, we suppose the "
+            "variation arises. What if we were to speculate otherwise? The reason is clear."
+        )
+        assert _compute_quality_score(diverse) > _compute_quality_score(repetitive), (
+            "Diverse reasoning vocabulary should outscore single-keyword repetition"
+        )
+
+    def test_quality_score_in_range(self):
+        """_compute_quality_score always returns a value in [0.0, 1.0]."""
+        from correspondence_extractor import _compute_quality_score
+
+        test_texts = [
+            "",
+            "Short.",
+            "therefore " * 20,
+            (
+                "I believe therefore the hypothesis is supported by evidence and argument. "
+                "Hence we conclude that natural selection explains variation. Because of this "
+                "the theory holds. What if we were to speculate otherwise? We wonder perhaps "
+                "if the observation might lead us to conclude something different."
+            ),
+        ]
+        for text in test_texts:
+            score = _compute_quality_score(text)
+            assert 0.0 <= score <= 1.0, f"Quality score {score} out of range for text {repr(text)[:40]!r}"

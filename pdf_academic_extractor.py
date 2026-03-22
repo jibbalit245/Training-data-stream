@@ -170,10 +170,7 @@ class PDFAcademicExtractor(BaseExtractor):
             raw_text=text,
             source_url=source,
             doc_type=doc_type,
-            tier=classify_tier(text),
-            structural_prior=tag_prior(text),
-            domain=domain,
-            quality_score=min(1.0, len(_ARGUMENT_RE.findall(text)) / 8),
+            tier=classify_tier(text, doc_type=doc_type),
             license_="unknown",
             agent_id=self.agent_id,
         )
