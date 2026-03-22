@@ -1,0 +1,74 @@
+# config.yaml
+# All secrets must be set as environment variables; never put real tokens here.
+
+huggingface:
+  repo_id: ${HF_REPO_ID}        # e.g. "username/reasoning-corpus"
+  token: ${HF_TOKEN}            # HF write token
+  split: train
+  chunk_size_mb: 50
+  private: false
+
+pipeline:
+  num_agents: 10
+  dedup_threshold: 0.92
+  dedup_model: "all-MiniLM-L6-v2"
+  dry_run: false                # set true to skip HF upload during testing
+
+retry:
+  max_attempts: 5
+  min_wait_sec: 2
+  max_wait_sec: 60
+
+database:
+  path: ${DB_PATH:-pipeline.db} # SQLite file path
+
+logging:
+  level: INFO
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+
+sources:
+  correspondence:
+    enabled: true
+    urls: []  # populate via DARWIN_URLS / EINSTEIN_URLS env vars or this list
+
+  dialogue:
+    enabled: true
+    urls: []  # populate via PLATO_URLS env var or this list
+
+  pdf:
+    enabled: true
+    urls: []  # populate via PDF_URLS env var
+
+  arxiv:
+    enabled: true
+    query: "reasoning OR chain-of-thought OR argumentation OR thought experiment"
+    categories:
+      - cs.AI
+      - cs.CL
+      - cs.LG
+      - math.LO
+      - physics.hist-ph
+      - quant-ph
+      - hep-th
+    max_results: 500
+    fetch_full_pdf: false
+
+  github:
+    enabled: true
+    repos:
+      - huggingface/transformers
+      - openai/openai-python
+      - pytorch/pytorch
+    token: ${GITHUB_TOKEN}
+    max_issues_per_repo: 100
+
+  stackexchange:
+    enabled: true
+    sites:
+      - math
+      - physics
+      - philosophy
+      - cs
+    min_score: 10
+    max_results_per_site: 200
+    api_key: ${SE_API_KEY}
