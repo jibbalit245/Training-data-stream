@@ -5,10 +5,17 @@ and maintain a SQLite index of extracted documents.
 
 Configuration is entirely environment-variable / config.yaml driven.
 Secrets (HF_TOKEN, GITHUB_TOKEN, SE_API_KEY) are never hard-coded.
+
+Stage 1 manifest mode
+---------------------
+Pass ``--stage1`` (or call ``run_stage1_pipeline``) to process the 73
+documents listed in ``stage1_manifest.csv``.  Each row is dispatched to
+the appropriate extractor based on its ``extractor_type`` column.
 """
 
 from __future__ import annotations
 
+import csv
 import logging
 import os
 import time
@@ -28,6 +35,8 @@ from pdf_academic_extractor import PDFAcademicExtractor
 from arxiv_extractor import ArxivExtractor
 from github_issues_extractor import GitHubIssuesExtractor
 from stackexchange_extractor import StackExchangeExtractor
+from darwin_extractor import DarwinExtractor
+from plato_extractor import PlatoExtractor
 
 # ---------------------------------------------------------------------------
 # Bootstrap
@@ -318,10 +327,225 @@ def run_pipeline(
 
 
 # ---------------------------------------------------------------------------
+# Stage 1 manifest support
+# ---------------------------------------------------------------------------
+
+# Map extractor_type column values to extractor classes
+_STAGE1_EXTRACTOR_MAP: Dict[str, type] = {
+    "DarwinXML": DarwinExtractor,
+    "NewtonXML": DarwinExtractor,          # TEI XML correspondence
+    "PlatoText": PlatoExtractor,
+    "GalileoText": PlatoExtractor,         # dialogue-form text
+    "AristotleText": PlatoExtractor,
+    "HerschelText": PlatoExtractor,
+    "FeynmanHTML": DialogueExtractor,
+    "EuclidHTML": DialogueExtractor,
+    "HTMLText": DialogueExtractor,
+    "MahajanHTML": DialogueExtractor,
+    "PDFText": PDFAcademicExtractor,
+    "ExtractPDF": PDFAcademicExtractor,
+    "MahajanPDF": PDFAcademicExtractor,
+    "CyberneticsOpenAccess": PDFAcademicExtractor,
+    "AutodeskDocs": DialogueExtractor,
+    "OpenSCADDocs": DialogueExtractor,
+    "BlenderDocs": DialogueExtractor,
+    "GitHubJupyter": GitHubIssuesExtractor,
+    "GitHubMarkdown": GitHubIssuesExtractor,
+    # Copyrighted / book extracts require manual supply; skip gracefully
+    "ExtractBook": None,
+}
+
+
+def load_stage1_manifest(manifest_path: str = "stage1_manifest.csv") -> List[Dict[str, str]]:
+    """
+    Load and return all rows from the Stage 1 source manifest CSV.
+
+    Parameters
+    ----------
+    manifest_path : str
+        Path to ``stage1_manifest.csv``.
+
+    Returns
+    -------
+    list of dict
+        Each dict has keys: doc_id, source, subject, tier, title, url,
+        extractor_type, license, estimated_tokens, prerequisites,
+        structural_prior.
+    """
+    rows: List[Dict[str, str]] = []
+    with open(manifest_path, newline="", encoding="utf-8") as fh:
+        reader = csv.DictReader(fh)
+        for row in reader:
+            rows.append(dict(row))
+    return rows
+
+
+def _build_stage1_agents(
+    manifest_rows: List[Dict[str, str]],
+    deduplicator: SemanticDeduplicator,
+) -> List[Dict[str, Any]]:
+    """
+    Build extraction agent configurations from Stage 1 manifest rows.
+
+    Groups rows by extractor_type and instantiates one agent per type,
+    skipping types that are not yet implemented or are copyrighted.
+    """
+    # Group URLs by extractor type
+    groups: Dict[str, List[str]] = {}
+    for row in manifest_rows:
+        etype = row.get("extractor_type", "")
+        url = row.get("url", "").strip()
+        if not url or etype not in _STAGE1_EXTRACTOR_MAP:
+            continue
+        groups.setdefault(etype, []).append(url)
+
+    agents = []
+    for etype, urls in groups.items():
+        cls = _STAGE1_EXTRACTOR_MAP.get(etype)
+        if cls is None:
+            logger.info("Stage 1: skipping extractor_type=%s (not yet implemented)", etype)
+            continue
+
+        agent_id = f"stage1_{etype.lower()}"
+
+        # Instantiate with appropriate source keyword depending on class
+        if issubclass(cls, (CorrespondenceExtractor, DarwinExtractor)):
+            extractor = cls(
+                xml_sources=urls,
+                agent_id=agent_id,
+                deduplicator=deduplicator,
+            )
+        elif issubclass(cls, (DialogueExtractor, PlatoExtractor)):
+            extractor = cls(
+                text_sources=urls,
+                agent_id=agent_id,
+                deduplicator=deduplicator,
+            )
+        elif issubclass(cls, PDFAcademicExtractor):
+            extractor = cls(
+                pdf_sources=urls,
+                agent_id=agent_id,
+                deduplicator=deduplicator,
+            )
+        elif issubclass(cls, GitHubIssuesExtractor):
+            # GitHubIssuesExtractor takes repo slugs, not full URLs; skip
+            logger.info("Stage 1: skipping GitHubIssuesExtractor (requires repo slugs)")
+            continue
+        else:
+            logger.warning("Stage 1: unknown extractor class %s for type %s", cls, etype)
+            continue
+
+        agents.append({"name": f"stage1_{etype}", "extractor": extractor})
+
+    return agents
+
+
+def run_stage1_pipeline(
+    manifest_path: str = "stage1_manifest.csv",
+    repo_id: Optional[str] = None,
+    token: Optional[str] = None,
+    dry_run: Optional[bool] = None,
+    config_path: str = "config.yaml",
+    enable_db: bool = True,
+) -> Dict[str, Any]:
+    """
+    Run the Stage 1 manifest-driven extraction pipeline.
+
+    Reads ``stage1_manifest.csv``, groups documents by extractor type,
+    and runs all extractors in parallel, streaming results to HF.
+
+    Parameters
+    ----------
+    manifest_path : str
+        Path to the Stage 1 source manifest CSV.
+    repo_id : str, optional
+        Override HF_REPO_ID.
+    token : str, optional
+        Override HF_TOKEN.
+    dry_run : bool, optional
+        Skip HF upload when True.
+    config_path : str
+        Path to config.yaml.
+    enable_db : bool
+        Create/update SQLite index.
+
+    Returns
+    -------
+    dict with pipeline summary including total_records and per-agent counts.
+    """
+    cfg = _load_config(config_path)
+    hf_cfg = cfg.get("huggingface", {})
+
+    _repo = repo_id or hf_cfg.get("repo_id") or os.getenv("HF_REPO_ID", "")
+    _token = token or hf_cfg.get("token") or os.getenv("HF_TOKEN", "")
+    _dry = dry_run if dry_run is not None else (
+        os.getenv("DRY_RUN", str(cfg.get("pipeline", {}).get("dry_run", "false"))).lower()
+        in ("1", "true", "yes")
+    )
+    dedup_threshold = float(os.getenv("DEDUP_THRESHOLD",
+                                      str(cfg.get("pipeline", {}).get("dedup_threshold", 0.92))))
+    dedup_model = os.getenv("DEDUP_MODEL",
+                            cfg.get("pipeline", {}).get("dedup_model", "all-MiniLM-L6-v2"))
+    chunk_mb = float(os.getenv("HF_CHUNK_SIZE_MB",
+                               str(hf_cfg.get("chunk_size_mb", 50))))
+
+    manifest_rows = load_stage1_manifest(manifest_path)
+    stage1_rows = [r for r in manifest_rows if str(r.get("tier", "")).strip() == "1"]
+    logger.info("Stage 1 pipeline: %d documents in manifest", len(stage1_rows))
+
+    deduplicator = SemanticDeduplicator(threshold=dedup_threshold, model_name=dedup_model)
+    uploader = StreamUploader(repo_id=_repo, token=_token, chunk_size_mb=chunk_mb, dry_run=_dry)
+    indexer = DBIndexer() if enable_db else None
+
+    agents = _build_stage1_agents(stage1_rows, deduplicator)
+    num_agents = max(1, len(agents))
+
+    logger.info("Stage 1: launching %d extraction agents | dry_run=%s", num_agents, _dry)
+
+    results = []
+    with uploader:
+        with ThreadPoolExecutor(max_workers=num_agents, thread_name_prefix="stage1") as pool:
+            futures = {
+                pool.submit(run_agent, agent, uploader, indexer): agent["name"]
+                for agent in agents
+            }
+            for future in as_completed(futures):
+                aname = futures[future]
+                try:
+                    results.append(future.result())
+                except Exception as exc:
+                    logger.error("Stage 1 agent %s raised: %s", aname, exc)
+                    results.append({"agent": aname, "count": 0, "errors": 1})
+
+    total = sum(r.get("count", 0) for r in results)
+    db_summary = indexer.summary() if indexer else {}
+    logger.info("Stage 1 pipeline complete: %d total records", total)
+
+    return {
+        "total_records": total,
+        "agents": results,
+        "repo_id": _repo,
+        "dry_run": _dry,
+        "db_summary": db_summary,
+        "manifest_documents": len(stage1_rows),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    summary = run_pipeline()
-    print(f"\nPipeline done: {summary['total_records']} records → {summary['repo_id']}")
+    import sys
+    if "--stage1" in sys.argv:
+        manifest = "stage1_manifest.csv"
+        for arg in sys.argv:
+            if arg.startswith("--manifest="):
+                manifest = arg.split("=", 1)[1]
+        summary = run_stage1_pipeline(manifest_path=manifest)
+        print(f"\nStage 1 done: {summary['total_records']} records from "
+              f"{summary['manifest_documents']} manifest documents → {summary['repo_id']}")
+    else:
+        summary = run_pipeline()
+        print(f"\nPipeline done: {summary['total_records']} records → {summary['repo_id']}")
     if summary.get("db_summary"):
         print(f"DB index: {summary['db_summary']}")

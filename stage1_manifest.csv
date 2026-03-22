@@ -1,0 +1,74 @@
+doc_id,source,subject,tier,title,url,extractor_type,license,estimated_tokens,prerequisites,structural_prior
+darwin_001,darwin_correspondence,biology,1,"Letter to Hooker 1844 - Natural Selection",https://www.darwinproject.ac.uk/letter/DCP-LETT-123,DarwinXML,CC_BY_NC,3500,none,none
+darwin_002,darwin_correspondence,biology,1,"Letter to Henslow 1835 - Galapagos Observations",https://www.darwinproject.ac.uk/letter/DCP-LETT-456,DarwinXML,CC_BY_NC,2800,none,none
+plato_001,plato_dialogues,philosophy,1,"Meno - Socratic Method",https://www.gutenberg.org/files/1497/1497-h/1497-h.htm,PlatoText,PD,15000,none,none
+plato_002,plato_dialogues,philosophy,1,"Euthyphro - Definition of Piety",https://www.gutenberg.org/files/1497/1497-h/1497-h.htm,PlatoText,PD,12000,none,none
+euclid_001,euclid_elements,math,1,"Book I - Propositions 1-10",https://mathcs.clarku.edu/~djoyce/java/elements/bookI/propI1.html,EuclidHTML,PD,8000,none,none
+galileo_001,galileo_dialogues,physics,1,"Two New Sciences - Day 1",https://oll.libertyfund.org/titles/galilei-dialogues-concerning-two-new-sciences,GalileoText,PD,25000,none,none
+feynman_001,feynman_lectures,physics,1,"Lecture 4 - Conservation of Energy",https://www.feynmanlectures.caltech.edu/I_04.html,FeynmanHTML,free_read,18000,none,conservation_laws
+hooker_001,scientific_correspondence,biology,1,"Letter to Darwin 1847 - Species Distribution",https://www.darwinproject.ac.uk/letter/DCP-LETT-789,DarwinXML,CC_BY_NC,3200,none,none
+wallace_001,scientific_correspondence,biology,1,"Letter to Darwin 1858 - Natural Selection",https://www.darwinproject.ac.uk/letter/DCP-LETT-999,DarwinXML,CC_BY_NC,4100,none,none
+berkeley_001,berkeley_dialogues,philosophy,1,"Three Dialogues - First Dialogue",https://www.gutenberg.org/files/4723/4723-h/4723-h.htm,PlatoText,PD,22000,none,none
+hume_001,hume_dialogues,philosophy,1,"Dialogues Concerning Natural Religion - Part 1",https://www.gutenberg.org/files/4583/4583-h/4583-h.htm,PlatoText,PD,25000,none,none
+aristotle_001,aristotle_organon,philosophy,1,"Categories - Chapter 1-5",https://classics.mit.edu/Aristotle/categories.1.1.html,AristotleText,PD,15000,none,none
+newton_001,newton_correspondence,physics,1,"Letter to Hooke 1679 - Planetary Motion",https://www.newtonproject.ox.ac.uk/texts/newtons-letters,NewtonXML,PD,3800,none,none
+herschel_001,scientific_correspondence,philosophy,1,"Preliminary Discourse - Scientific Method",https://www.gutenberg.org/files/54652/54652-h/54652-h.htm,HerschelText,PD,35000,none,none
+popper_001,philosophy_science,philosophy,1,"Logic of Scientific Discovery - Ch 1",https://www.worldcat.org/title/logic-of-scientific-discovery/oclc/43494818,ExtractPDF,copyrighted,25000,none,none
+kant_001,critique_reason,philosophy,1,"Prolegomena - Introduction",https://www.gutenberg.org/files/52821/52821-h/52821-h.htm,PlatoText,PD,18000,none,none
+lakatos_001,proofs_refutations,math,1,"Proofs and Refutations - Ch 1",https://www.worldcat.org/title/proofs-and-refutations-the-logic-of-mathematical-discovery/oclc/222005254,ExtractPDF,copyrighted,20000,none,symmetry_breaking
+mahajan_001,street_fighting_math,math,1,"Chapter 1 - Dimensions",https://library.oapen.org/handle/20.500.12657/26090,MahajanPDF,CC_BY_NC_SA,15000,none,dimensional_analysis
+mahajan_002,art_insight,physics,1,"Chapter 2 - Discarding Complexity",https://ocw.mit.edu/courses/res-6-011-the-art-of-insight-in-science-and-engineering-mastering-complexity-fall-2014/,MahajanHTML,CC_BY_NC_SA,12000,none,dimensional_analysis
+clark_001,extended_mind,psychology,1,"The Extended Mind - Full Paper",https://www.alice.id.tue.nl/references/clark-chalmers-1998.pdf,PDFText,academic_fair_use,9000,none,tool_as_cognitive_prosthetic
+hutchins_001,cognition_wild,psychology,1,"Cognition in the Wild - Ch 1",https://uberty.org/wp-content/uploads/2015/07/Edwin_Hutchins_Cognition_in_the_Wild.pdf,PDFText,academic_fair_use,15000,none,tool_as_cognitive_prosthetic
+norman_001,cognitive_artifacts,design,1,"Cognitive Artifacts - Chapter",https://hci.ucsd.edu/220/representation.pdf,PDFText,academic_fair_use,11000,none,tool_as_cognitive_prosthetic
+schon_001,reflective_practitioner,design,1,"Design as Reflective Conversation",https://studenthublive.open.ac.uk/sites/studenthublive.open.ac.uk/files/reflective%20practitioner%20-%20schon.pdf,PDFText,academic_fair_use,12000,none,tool_as_cognitive_prosthetic
+iverson_001,notation_tool,math,1,"Notation as a Tool of Thought",https://www.eecg.utoronto.ca/~jzhu/csc326/readings/iverson.pdf,PDFText,academic_fair_use,26000,none,tool_as_cognitive_prosthetic
+kay_001,history_smalltalk,cs,1,"Early History of Smalltalk",https://worrydream.com/EarlyHistoryOfSmalltalk/,HTMLText,free,15000,none,tool_as_cognitive_prosthetic
+papert_001,mindstorms,education,1,"Chapter 1 - Computers for Children",https://www.arvindguptatoys.com/arvindgupta/mindstorms.pdf,PDFText,free,20000,none,tool_as_cognitive_prosthetic
+victor_001,explorable_explanations,design,1,"Explorable Explanations",https://worrydream.com/ExplorableExplanations/,HTMLText,free,6000,none,tool_as_cognitive_prosthetic
+victor_002,ladder_abstraction,design,1,"Up and Down the Ladder of Abstraction",https://worrydream.com/LadderOfAbstraction/,HTMLText,free,10000,none,tool_as_cognitive_prosthetic
+norvig_001,pytudes,cs,1,"Economic Simulation Notebook",https://github.com/norvig/pytudes/blob/main/ipynb/Economics.ipynb,GitHubJupyter,MIT,8000,none,tool_as_cognitive_prosthetic
+barba_001,cfd_python,engineering,1,"12 Steps to Navier-Stokes",https://github.com/barbagroup/CFDPython,GitHubMarkdown,CC_BY,15000,none,tool_as_cognitive_prosthetic
+noether_001,noether_theorem,physics,1,"Invariant Variational Problems",http://cwp.library.ucla.edu/articles/noether.trans/english/mort186.html,HTMLText,PD,25000,euclid_001,conservation_laws
+feynman_002,feynman_lectures,physics,1,"Lecture 10 - Conservation of Momentum",https://www.feynmanlectures.caltech.edu/I_10.html,FeynmanHTML,free_read,22000,euclid_001,conservation_laws
+euclid_002,euclid_elements,math,1,"Book I - Propositions 11-20",https://mathcs.clarku.edu/~djoyce/java/elements/bookI/propI11.html,EuclidHTML,PD,9000,euclid_001,none
+euclid_003,euclid_elements,math,1,"Book III - Circle Properties",https://mathcs.clarku.edu/~djoyce/java/elements/bookIII/propIII1.html,EuclidHTML,PD,12000,euclid_001,none
+galileo_002,galileo_dialogues,physics,1,"Two New Sciences - Day 2",https://oll.libertyfund.org/titles/galilei-dialogues-concerning-two-new-sciences,GalileoText,PD,28000,euclid_001,none
+bacon_001,novum_organum,philosophy,1,"Book I - Inductive Method",https://www.gutenberg.org/files/42962/42962-h/42962-h.htm,PlatoText,PD,30000,none,none
+mill_001,system_logic,philosophy,1,"Book III - Experimental Methods",https://www.gutenberg.org/files/27942/27942-h/27942-h.htm,PlatoText,PD,35000,none,none
+poincare_001,science_hypothesis,philosophy,1,"Science and Hypothesis - Introduction",https://www.gutenberg.org/files/39713/39713-h/39713-h.htm,PlatoText,PD,18000,none,none
+cook_001,design_thinking,design,1,"Designing for the Digital Age",https://www.oreilly.com/library/view/designing-for-the/9780596802185/,ExtractBook,copyrighted,25000,none,tool_as_cognitive_prosthetic
+alexander_001,pattern_language,architecture,1,"A Pattern Language - Selected Patterns",https://www.amazon.com/Pattern-Language-Buildings-Construction-Environment/dp/0195019199,ExtractBook,copyrighted,40000,none,tool_as_cognitive_prosthetic
+norman_002,design_everyday,design,1,"Design of Everyday Things - Ch 1",https://www.amazon.com/Design-Everyday-Things-Revised-Expanded/dp/0465050654,ExtractBook,copyrighted,15000,none,tool_as_cognitive_prosthetic
+simon_001,sciences_artificial,cs,1,"Sciences of the Artificial - Ch 1",https://www.amazon.com/Sciences-Artificial-Herbert-Simon/dp/0262691914,ExtractBook,copyrighted,12000,none,tool_as_cognitive_prosthetic
+dawkins_001,selfish_gene,biology,1,"The Selfish Gene - Ch 1",https://www.worldcat.org/title/selfish-gene/oclc/26884983,ExtractBook,copyrighted,18000,darwin_001,none
+gould_001,wonderful_life,biology,1,"Wonderful Life - Ch 1",https://www.amazon.com/Wonderful-Life-Burgess-Shale-Nature/dp/039330700X,ExtractBook,copyrighted,20000,darwin_001,none
+wilson_001,diversity_life,biology,1,"The Diversity of Life - Ch 1",https://www.amazon.com/Diversity-Life-Edward-Osborne-Wilson/dp/0393319407,ExtractBook,copyrighted,15000,darwin_001,none
+smith_001,wealth_nations,economics,1,"Wealth of Nations - Book I Ch 1",https://www.gutenberg.org/files/3300/3300-h/3300-h.htm,PlatoText,PD,22000,none,none
+keynes_001,general_theory,economics,1,"General Theory - Ch 1-2",https://gutenberg.net.au/ebooks03/0300011h.html,PlatoText,PD,18000,smith_001,none
+nash_001,equilibrium,economics,1,"Non-Cooperative Games",https://www.pnas.org/doi/10.1073/pnas.36.1.48,PDFText,open_access,6000,smith_001,none
+kahneman_001,prospect_theory,psychology,1,"Prospect Theory Paper",https://www.uzh.ch/cmsssl/suz/dam/jcr:00000000-68cb-72db-0000-0000648fe47/04.20_1979_kahneman.pdf,PDFText,academic_fair_use,12000,none,none
+piaget_001,developmental,psychology,1,"The Psychology of Intelligence",https://www.amazon.com/Psychology-Intelligence-Jean-Piaget/dp/0415264497,ExtractBook,copyrighted,25000,none,none
+vygotsky_001,thought_language,psychology,1,"Thought and Language - Ch 1",https://www.amazon.com/Thought-Language-MIT-Press/dp/0262517710,ExtractBook,copyrighted,20000,piaget_001,none
+bateson_001,ecology_mind,psychology,1,"Steps to an Ecology of Mind - Ch 1",https://ejcj.orfaleacenter.ucsb.edu/wp-content/uploads/2015/07/1972.-Gregory-Bateson-Steps-to-an-Ecology-of-Mind.pdf,PDFText,free,25000,none,feedback_loops
+ashby_001,introduction_cybernetics,systems,1,"Introduction to Cybernetics - Ch 1",https://ashby.info/Ashby-Introduction-to-Cybernetics.pdf,PDFText,free,20000,none,feedback_loops
+wiener_001,cybernetics,systems,1,"Cybernetics - Introduction",https://direct.mit.edu/books/oa-monograph/4581,CyberneticsOpenAccess,CC_BY_NC,25000,none,feedback_loops
+bertalanffy_001,general_systems,systems,1,"General System Theory - Ch 1",https://www.amazon.com/General-System-Theory-Foundations-Development/dp/0807600456,ExtractBook,copyrighted,18000,none,feedback_loops
+meadows_001,thinking_systems,systems,1,"Thinking in Systems - Ch 1",https://www.amazon.com/Thinking-Systems-Donella-H-Meadows/dp/1603580557,ExtractBook,copyrighted,15000,none,feedback_loops
+forrester_001,system_dynamics,systems,1,"Principles of Systems",https://systemdynamics.org/books/principles-of-systems,ExtractBook,copyrighted,22000,none,feedback_loops
+senge_001,fifth_discipline,systems,1,"The Fifth Discipline - Ch 1",https://www.amazon.com/Fifth-Discipline-Practice-Learning-Organization/dp/0385517254,ExtractBook,copyrighted,18000,none,feedback_loops
+autocad_001,autocad_basics,autocad,1,"AutoCAD Fundamentals - Basic Commands",https://help.autodesk.com/view/ACD/2024/ENU/,AutodeskDocs,free,15000,none,tool_as_cognitive_prosthetic
+autocad_002,autocad_lisp,autocad,1,"AutoLISP Basics",https://help.autodesk.com/view/ACD/2024/ENU/,AutodeskDocs,free,12000,autocad_001,tool_as_cognitive_prosthetic
+openscad_001,openscad_manual,autocad,1,"OpenSCAD User Manual - Basics",https://openscad.org/documentation.html,OpenSCADDocs,free,10000,none,tool_as_cognitive_prosthetic
+blender_001,blender_basics,autocad,1,"Blender Manual - Interface",https://docs.blender.org/manual/en/latest/,BlenderDocs,free,8000,none,tool_as_cognitive_prosthetic
+mcmaster_001,history_mechanics,physics,1,"A History of Mechanics - Ch 1",https://www.amazon.com/History-Mechanics-Ren%C3%A9-Dugas/dp/0486656322,ExtractBook,copyrighted,20000,none,none
+duhem_001,aim_structure,philosophy,1,"The Aim and Structure of Physical Theory",https://www.amazon.com/Aim-Structure-Physical-Theory-Pierre/dp/069102524X,ExtractBook,copyrighted,25000,none,none
+einstein_001,relativity,physics,1,"Relativity: The Special and General Theory",https://www.gutenberg.org/files/5001/5001-h/5001-h.htm,PlatoText,PD,30000,galileo_001,none
+einstein_002,geometry_experience,philosophy,1,"Geometry and Experience",https://www.marxists.org/reference/archive/einstein/works/1921/geometry-experience.htm,PlatoText,PD,12000,euclid_001,none
+bohr_001,atomic_theory,physics,1,"Atomic Theory and the Description of Nature",https://www.amazon.com/Atomic-Theory-Description-Nature-Bohr/dp/1107407218,ExtractBook,copyrighted,18000,galileo_002,none
+heisenberg_001,physics_philosophy,physics,1,"Physics and Philosophy",https://www.amazon.com/Physics-Philosophy-Revolution-Modern-Science/dp/0061209198,ExtractBook,copyrighted,22000,bohr_001,none
+schrodinger_001,nature_greeks,physics,1,"Nature and the Greeks",https://www.amazon.com/Nature-Greeks-Erwin-Schr%C3%B6dinger/dp/0521084185,ExtractBook,copyrighted,15000,none,none
+born_001,physics_idle_pastime,physics,1,"The Born-Einstein Letters",https://www.amazon.com/Born-Einstein-Letters-Friendship-Politics-Physics/dp/0333802732,ExtractBook,copyrighted,25000,einstein_001,none
+einstein_bohr_001,solvay_transcripts,physics,1,"Fifth Solvay Conference Transcripts",https://www.lorentz.leidenuniv.nl/history/Solvay/solvay.html,HTMLText,free,40000,heisenberg_001,none
+weinberg_001,dreams_final_theory,physics,1,"Dreams of a Final Theory - Ch 1",https://www.amazon.com/Dreams-Final-Theory-Steven-Weinberg/dp/0679744088,ExtractBook,copyrighted,18000,einstein_001,none
+feynman_003,surely_joking,physics,1,"Surely You're Joking - Ch 1",https://www.amazon.com/Surely-Feynman-Adventures-Curious-Character/dp/0393316041,ExtractBook,copyrighted,15000,none,none
