@@ -72,3 +72,19 @@ sources:
     min_score: 10
     max_results_per_site: 200
     api_key: ${SE_API_KEY}
+
+tier_prompts:
+  source: tier_prompts.py  # 10 tier-specific system prompts
+
+observe_probe:
+  enabled: true
+  model: "Qwen/Qwen2.5-14B-Instruct"  # or "api:claude" or "api:gpt4"
+  api_key: ${OBSERVE_PROBE_API_KEY:-""}
+  max_tokens: 500
+  temperature: 0.3  # low temp for consistent, structured output
+  content_ratio_min: 0.70
+  content_ratio_max: 0.85
+
+adversary:
+  enabled: false  # not used during extraction, only during training
+  model_path: ""  # set after adversary-forge training

@@ -87,11 +87,13 @@ class GitHubIssuesExtractor(BaseExtractor):
         agent_id: str = "agent_000",
         deduplicator=None,
         min_text_length: int = 120,
+        manifest_tier_map: Optional[dict] = None,
     ):
         super().__init__(
             agent_id=agent_id,
             deduplicator=deduplicator,
             min_text_length=min_text_length,
+            manifest_tier_map=manifest_tier_map,
         )
         self.repos = repos or []
         self.labels = labels
@@ -164,11 +166,13 @@ class GitHubIssuesExtractor(BaseExtractor):
         return "\n\n---\n\n".join(parts)
 
     def _build_record(self, thread: str, issue: dict, repo_full: str) -> dict:
+        issue_url = issue.get("html_url", repo_full)
         return make_record(
             raw_text=thread,
-            source_url=issue.get("html_url", repo_full),
+            source_url=issue_url,
             doc_type="tool_demonstration",
-            tier=classify_tier(thread, doc_type="tool_demonstration"),
+            tier=classify_tier(thread, doc_type="tool_demonstration",
+                               manifest_tier=self.manifest_tier_map.get(issue_url)),
             quality_score=min(1.0, len(_REASONING_RE.findall(thread)) / 12),
             license_="unknown",
             agent_id=self.agent_id,

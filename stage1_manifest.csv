@@ -16,19 +16,19 @@ herschel_001,scientific_correspondence,philosophy,1,"Preliminary Discourse - Sci
 popper_001,philosophy_science,philosophy,1,"Logic of Scientific Discovery - Ch 1",https://www.worldcat.org/title/logic-of-scientific-discovery/oclc/43494818,ExtractPDF,copyrighted,25000,none,none
 kant_001,critique_reason,philosophy,1,"Prolegomena - Introduction",https://www.gutenberg.org/files/52821/52821-h/52821-h.htm,PlatoText,PD,18000,none,none
 lakatos_001,proofs_refutations,math,1,"Proofs and Refutations - Ch 1",https://www.worldcat.org/title/proofs-and-refutations-the-logic-of-mathematical-discovery/oclc/222005254,ExtractPDF,copyrighted,20000,none,symmetry_breaking
-mahajan_001,street_fighting_math,math,1,"Chapter 1 - Dimensions",https://library.oapen.org/handle/20.500.12657/26090,MahajanPDF,CC_BY_NC_SA,15000,none,dimensional_analysis
-mahajan_002,art_insight,physics,1,"Chapter 2 - Discarding Complexity",https://ocw.mit.edu/courses/res-6-011-the-art-of-insight-in-science-and-engineering-mastering-complexity-fall-2014/,MahajanHTML,CC_BY_NC_SA,12000,none,dimensional_analysis
+mahajan_001,street_fighting_math,math,3,"Chapter 1 - Dimensions",https://library.oapen.org/handle/20.500.12657/26090,MahajanPDF,CC_BY_NC_SA,15000,none,dimensional_analysis
+mahajan_002,art_insight,physics,3,"Chapter 2 - Discarding Complexity",https://ocw.mit.edu/courses/res-6-011-the-art-of-insight-in-science-and-engineering-mastering-complexity-fall-2014/,MahajanHTML,CC_BY_NC_SA,12000,none,dimensional_analysis
 clark_001,extended_mind,psychology,1,"The Extended Mind - Full Paper",https://www.alice.id.tue.nl/references/clark-chalmers-1998.pdf,PDFText,academic_fair_use,9000,none,tool_as_cognitive_prosthetic
 hutchins_001,cognition_wild,psychology,1,"Cognition in the Wild - Ch 1",https://uberty.org/wp-content/uploads/2015/07/Edwin_Hutchins_Cognition_in_the_Wild.pdf,PDFText,academic_fair_use,15000,none,tool_as_cognitive_prosthetic
 norman_001,cognitive_artifacts,design,1,"Cognitive Artifacts - Chapter",https://hci.ucsd.edu/220/representation.pdf,PDFText,academic_fair_use,11000,none,tool_as_cognitive_prosthetic
 schon_001,reflective_practitioner,design,1,"Design as Reflective Conversation",https://studenthublive.open.ac.uk/sites/studenthublive.open.ac.uk/files/reflective%20practitioner%20-%20schon.pdf,PDFText,academic_fair_use,12000,none,tool_as_cognitive_prosthetic
-iverson_001,notation_tool,math,1,"Notation as a Tool of Thought",https://www.eecg.utoronto.ca/~jzhu/csc326/readings/iverson.pdf,PDFText,academic_fair_use,26000,none,tool_as_cognitive_prosthetic
-kay_001,history_smalltalk,cs,1,"Early History of Smalltalk",https://worrydream.com/EarlyHistoryOfSmalltalk/,HTMLText,free,15000,none,tool_as_cognitive_prosthetic
-papert_001,mindstorms,education,1,"Chapter 1 - Computers for Children",https://www.arvindguptatoys.com/arvindgupta/mindstorms.pdf,PDFText,free,20000,none,tool_as_cognitive_prosthetic
-victor_001,explorable_explanations,design,1,"Explorable Explanations",https://worrydream.com/ExplorableExplanations/,HTMLText,free,6000,none,tool_as_cognitive_prosthetic
-victor_002,ladder_abstraction,design,1,"Up and Down the Ladder of Abstraction",https://worrydream.com/LadderOfAbstraction/,HTMLText,free,10000,none,tool_as_cognitive_prosthetic
-norvig_001,pytudes,cs,1,"Economic Simulation Notebook",https://github.com/norvig/pytudes/blob/main/ipynb/Economics.ipynb,GitHubJupyter,MIT,8000,none,tool_as_cognitive_prosthetic
-barba_001,cfd_python,engineering,1,"12 Steps to Navier-Stokes",https://github.com/barbagroup/CFDPython,GitHubMarkdown,CC_BY,15000,none,tool_as_cognitive_prosthetic
+iverson_001,notation_tool,math,4,"Notation as a Tool of Thought",https://www.eecg.utoronto.ca/~jzhu/csc326/readings/iverson.pdf,PDFText,academic_fair_use,26000,none,tool_as_cognitive_prosthetic
+kay_001,history_smalltalk,cs,4,"Early History of Smalltalk",https://worrydream.com/EarlyHistoryOfSmalltalk/,HTMLText,free,15000,none,tool_as_cognitive_prosthetic
+papert_001,mindstorms,education,4,"Chapter 1 - Computers for Children",https://www.arvindguptatoys.com/arvindgupta/mindstorms.pdf,PDFText,free,20000,none,tool_as_cognitive_prosthetic
+victor_001,explorable_explanations,design,4,"Explorable Explanations",https://worrydream.com/ExplorableExplanations/,HTMLText,free,6000,none,tool_as_cognitive_prosthetic
+victor_002,ladder_abstraction,design,4,"Up and Down the Ladder of Abstraction",https://worrydream.com/LadderOfAbstraction/,HTMLText,free,10000,none,tool_as_cognitive_prosthetic
+norvig_001,pytudes,cs,4,"Economic Simulation Notebook",https://github.com/norvig/pytudes/blob/main/ipynb/Economics.ipynb,GitHubJupyter,MIT,8000,none,tool_as_cognitive_prosthetic
+barba_001,cfd_python,engineering,4,"12 Steps to Navier-Stokes",https://github.com/barbagroup/CFDPython,GitHubMarkdown,CC_BY,15000,none,tool_as_cognitive_prosthetic
 noether_001,noether_theorem,physics,1,"Invariant Variational Problems",http://cwp.library.ucla.edu/articles/noether.trans/english/mort186.html,HTMLText,PD,25000,euclid_001,conservation_laws
 feynman_002,feynman_lectures,physics,1,"Lecture 10 - Conservation of Momentum",https://www.feynmanlectures.caltech.edu/I_10.html,FeynmanHTML,free_read,22000,euclid_001,conservation_laws
 euclid_002,euclid_elements,math,1,"Book I - Propositions 11-20",https://mathcs.clarku.edu/~djoyce/java/elements/bookI/propI11.html,EuclidHTML,PD,9000,euclid_001,none
@@ -57,10 +57,10 @@ bertalanffy_001,general_systems,systems,1,"General System Theory - Ch 1",https:/
 meadows_001,thinking_systems,systems,1,"Thinking in Systems - Ch 1",https://www.amazon.com/Thinking-Systems-Donella-H-Meadows/dp/1603580557,ExtractBook,copyrighted,15000,none,feedback_loops
 forrester_001,system_dynamics,systems,1,"Principles of Systems",https://systemdynamics.org/books/principles-of-systems,ExtractBook,copyrighted,22000,none,feedback_loops
 senge_001,fifth_discipline,systems,1,"The Fifth Discipline - Ch 1",https://www.amazon.com/Fifth-Discipline-Practice-Learning-Organization/dp/0385517254,ExtractBook,copyrighted,18000,none,feedback_loops
-autocad_001,autocad_basics,autocad,1,"AutoCAD Fundamentals - Basic Commands",https://help.autodesk.com/view/ACD/2024/ENU/,AutodeskDocs,free,15000,none,tool_as_cognitive_prosthetic
-autocad_002,autocad_lisp,autocad,1,"AutoLISP Basics",https://help.autodesk.com/view/ACD/2024/ENU/,AutodeskDocs,free,12000,autocad_001,tool_as_cognitive_prosthetic
-openscad_001,openscad_manual,autocad,1,"OpenSCAD User Manual - Basics",https://openscad.org/documentation.html,OpenSCADDocs,free,10000,none,tool_as_cognitive_prosthetic
-blender_001,blender_basics,autocad,1,"Blender Manual - Interface",https://docs.blender.org/manual/en/latest/,BlenderDocs,free,8000,none,tool_as_cognitive_prosthetic
+autocad_001,autocad_basics,autocad,4,"AutoCAD Fundamentals - Basic Commands",https://help.autodesk.com/view/ACD/2024/ENU/,AutodeskDocs,free,15000,none,tool_as_cognitive_prosthetic
+autocad_002,autocad_lisp,autocad,4,"AutoLISP Basics",https://help.autodesk.com/view/ACD/2024/ENU/,AutodeskDocs,free,12000,autocad_001,tool_as_cognitive_prosthetic
+openscad_001,openscad_manual,autocad,4,"OpenSCAD User Manual - Basics",https://openscad.org/documentation.html,OpenSCADDocs,free,10000,none,tool_as_cognitive_prosthetic
+blender_001,blender_basics,autocad,4,"Blender Manual - Interface",https://docs.blender.org/manual/en/latest/,BlenderDocs,free,8000,none,tool_as_cognitive_prosthetic
 mcmaster_001,history_mechanics,physics,1,"A History of Mechanics - Ch 1",https://www.amazon.com/History-Mechanics-Ren%C3%A9-Dugas/dp/0486656322,ExtractBook,copyrighted,20000,none,none
 duhem_001,aim_structure,philosophy,1,"The Aim and Structure of Physical Theory",https://www.amazon.com/Aim-Structure-Physical-Theory-Pierre/dp/069102524X,ExtractBook,copyrighted,25000,none,none
 einstein_001,relativity,physics,1,"Relativity: The Special and General Theory",https://www.gutenberg.org/files/5001/5001-h/5001-h.htm,PlatoText,PD,30000,galileo_001,none

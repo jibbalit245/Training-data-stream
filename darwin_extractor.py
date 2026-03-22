@@ -59,12 +59,14 @@ class DarwinExtractor(CorrespondenceExtractor):
         agent_id: str = "agent_000",
         deduplicator=None,
         min_text_length: int = 200,
+        manifest_tier_map: Optional[dict] = None,
     ):
         super().__init__(
             xml_sources=xml_sources,
             agent_id=agent_id,
             deduplicator=deduplicator,
             min_text_length=min_text_length,
+            manifest_tier_map=manifest_tier_map,
         )
 
     # ------------------------------------------------------------------
@@ -82,7 +84,8 @@ class DarwinExtractor(CorrespondenceExtractor):
             raw_text=text,
             source_url=source,
             doc_type="correspondence",
-            tier=classify_tier(text, doc_type="correspondence"),
+            tier=classify_tier(text, doc_type="correspondence",
+                               manifest_tier=self.manifest_tier_map.get(source)),
             participants=participants,
             quality_score=min(1.0, hits / 12),
             license_=license_,

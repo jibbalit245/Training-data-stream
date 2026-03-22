@@ -99,11 +99,13 @@ class DialogueExtractor(BaseExtractor):
         agent_id: str = "agent_000",
         deduplicator=None,
         min_text_length: int = 120,
+        manifest_tier_map: Optional[dict] = None,
     ):
         super().__init__(
             agent_id=agent_id,
             deduplicator=deduplicator,
             min_text_length=min_text_length,
+            manifest_tier_map=manifest_tier_map,
         )
         self.text_sources = text_sources or []
         self.chunk_turns = chunk_turns
@@ -187,7 +189,8 @@ class DialogueExtractor(BaseExtractor):
             raw_text=text,
             source_url=source,
             doc_type=doc_type,
-            tier=classify_tier(text, doc_type=doc_type),
+            tier=classify_tier(text, doc_type=doc_type,
+                               manifest_tier=self.manifest_tier_map.get(source)),
             license_="public_domain",
             agent_id=self.agent_id,
         )

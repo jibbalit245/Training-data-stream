@@ -114,7 +114,11 @@ _FOUNDATIONAL_DOC_TYPES = frozenset({
 })
 
 
-def classify_tier(text: str, doc_type: Optional[str] = None) -> int:
+def classify_tier(
+    text: str,
+    doc_type: Optional[str] = None,
+    manifest_tier: Optional[int] = None,
+) -> int:
     """
     Return the tier (1-5) best matching *text*.
 
@@ -128,6 +132,10 @@ def classify_tier(text: str, doc_type: Optional[str] = None) -> int:
         When provided for foundational source types, tiers 1 and 2 receive
         a 1.5× multiplier so that primary reasoning documents are not
         pushed into tier 3 by incidental application vocabulary.
+    manifest_tier : int, optional
+        When provided and within VALID_TIERS, this value is returned
+        directly without running the heuristic classifier.  Manifest
+        assignments always take precedence over heuristic classification.
 
     Returns
     -------
@@ -137,6 +145,9 @@ def classify_tier(text: str, doc_type: Optional[str] = None) -> int:
         3 = applied models (default), 4 = computational/tool use,
         5 = meta-analysis/synthesis.
     """
+    from base_extractor import VALID_TIERS
+    if manifest_tier is not None and manifest_tier in VALID_TIERS:
+        return manifest_tier
     # 1. Raw keyword scores (float so subsequent arithmetic stays consistent)
     scores: dict[int, float] = {
         tier: float(len(pat.findall(text)))

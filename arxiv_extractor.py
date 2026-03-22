@@ -88,11 +88,13 @@ class ArxivExtractor(BaseExtractor):
         agent_id: str = "agent_000",
         deduplicator=None,
         min_text_length: int = 100,
+        manifest_tier_map: Optional[dict] = None,
     ):
         super().__init__(
             agent_id=agent_id,
             deduplicator=deduplicator,
             min_text_length=min_text_length,
+            manifest_tier_map=manifest_tier_map,
         )
         self.query = query
         self.categories = categories or _DEFAULT_CATEGORIES
@@ -167,7 +169,9 @@ class ArxivExtractor(BaseExtractor):
             raw_text=text,
             source_url=entry.get("arxiv_id", ""),
             doc_type="synthesis",
-            tier=classify_tier(text, doc_type="synthesis"),
+            tier=classify_tier(text, doc_type="synthesis",
+                               manifest_tier=self.manifest_tier_map.get(
+                                   entry.get("arxiv_id", ""))),
             license_="CC_BY",
             agent_id=self.agent_id,
             extra_metadata={

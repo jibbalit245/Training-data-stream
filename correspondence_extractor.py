@@ -154,11 +154,13 @@ class CorrespondenceExtractor(BaseExtractor):
         agent_id: str = "agent_000",
         deduplicator=None,
         min_text_length: int = 100,
+        manifest_tier_map: Optional[dict] = None,
     ):
         super().__init__(
             agent_id=agent_id,
             deduplicator=deduplicator,
             min_text_length=min_text_length,
+            manifest_tier_map=manifest_tier_map,
         )
         self.xml_sources = xml_sources or []
 
@@ -232,7 +234,8 @@ class CorrespondenceExtractor(BaseExtractor):
             raw_text=text,
             source_url=source,
             doc_type="correspondence",
-            tier=classify_tier(text, doc_type="correspondence"),
+            tier=classify_tier(text, doc_type="correspondence",
+                               manifest_tier=self.manifest_tier_map.get(source)),
             structural_prior=tag_prior(text),
             domain=["cross_domain"],
             participants=participants,
