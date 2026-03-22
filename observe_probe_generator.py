@@ -156,6 +156,7 @@ def _call_api_model(
     Supported ``model`` prefixes:
     - ``"api:claude"``  → Anthropic Claude (requires ``anthropic`` package)
     - ``"api:gpt"``     → OpenAI GPT (requires ``openai`` package)
+      (also accepted as ``"api:gpt4"`` for convenience)
     """
     if model.startswith("api:claude"):
         import anthropic  # type: ignore
@@ -227,8 +228,8 @@ def generate_observe_probe(
     record : dict
         Extracted record with ``raw_content`` and ``metadata`` fields.
     model : str
-        Model identifier.  Use ``"api:claude"`` or ``"api:gpt4"`` for API
-        calls; a HuggingFace model path for local inference.
+        Model identifier.  Use ``"api:claude"`` or ``"api:gpt"`` (``"api:gpt4"``
+        also accepted) for API calls; a HuggingFace model path for local inference.
     api_key : str
         API key (used only when ``model`` starts with ``"api:"``).
     max_tokens : int

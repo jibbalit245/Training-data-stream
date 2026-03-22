@@ -1,6 +1,8 @@
 """
 tier_prompts.py
-System prompts for each of the 10 training tiers.
+System prompts for each of the 10 training tiers (1-10).
+Tier 0 is the "unclassified" tier; it has no dedicated prompt and
+falls back to the tier-1 prompt via get_tier_prompt().
 
 Tiers 1-5: Knowledge absorption
 Tiers 6-8: Application (same content, different lens)
@@ -117,5 +119,10 @@ TIER_PROMPTS = {
 
 
 def get_tier_prompt(tier: int) -> str:
-    """Return the system prompt for the given tier (1-10)."""
+    """Return the system prompt for the given tier (1-10).
+
+    Tier 0 (unclassified) is not represented in TIER_PROMPTS; it falls
+    back to the tier-1 prompt.  Any unrecognised tier also falls back
+    to tier 1.
+    """
     return TIER_PROMPTS.get(tier, TIER_PROMPTS[1])
