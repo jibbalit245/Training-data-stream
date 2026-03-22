@@ -167,10 +167,7 @@ class ArxivExtractor(BaseExtractor):
             raw_text=text,
             source_url=entry.get("arxiv_id", ""),
             doc_type="synthesis",
-            tier=classify_tier(text),
-            structural_prior=tag_prior(text),
-            domain=domain,
-            quality_score=min(1.0, len(_REASONING_RE.findall(text)) / 8),
+            tier=classify_tier(text, doc_type="synthesis"),
             license_="CC_BY",
             agent_id=self.agent_id,
             extra_metadata={

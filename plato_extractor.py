@@ -91,7 +91,7 @@ class PlatoExtractor(DialogueExtractor):
             raw_text=text,
             source_url="",          # caller fills source_url via super()
             doc_type=doc_type,
-            tier=classify_tier(text),
+            tier=classify_tier(text, doc_type=doc_type),
             structural_prior=tag_prior(text),
             domain=["philosophy"],
             participants=participants,
@@ -113,7 +113,7 @@ class PlatoExtractor(DialogueExtractor):
             raw_text=text,
             source_url=source,
             doc_type=doc_type,
-            tier=classify_tier(text),
+            tier=classify_tier(text, doc_type=doc_type),
             structural_prior=tag_prior(text),
             domain=["philosophy"],
             participants=participants,
