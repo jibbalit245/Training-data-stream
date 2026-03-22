@@ -389,15 +389,23 @@ def _build_stage1_agents(
 
     Groups rows by extractor_type and instantiates one agent per type,
     skipping types that are not yet implemented or are copyrighted.
+    Passes manifest-assigned tiers as a URL→tier map so that each
+    extractor can use ``manifest_tier`` in ``classify_tier()`` rather
+    than falling back to the heuristic classifier.
     """
-    # Group URLs by extractor type
+    # Group URLs and their manifest tiers by extractor type
     groups: Dict[str, List[str]] = {}
+    tier_map: Dict[str, int] = {}  # url → manifest tier
     for row in manifest_rows:
         etype = row.get("extractor_type", "")
         url = row.get("url", "").strip()
         if not url or etype not in _STAGE1_EXTRACTOR_MAP:
             continue
         groups.setdefault(etype, []).append(url)
+        try:
+            tier_map[url] = int(row.get("tier", 1))
+        except (ValueError, TypeError):
+            tier_map[url] = 1
 
     agents = []
     for etype, urls in groups.items():
@@ -407,6 +415,8 @@ def _build_stage1_agents(
             continue
 
         agent_id = f"stage1_{etype.lower()}"
+        # Build url→tier sub-map for this extractor's URLs
+        extractor_tier_map = {u: tier_map[u] for u in urls if u in tier_map}
 
         # Instantiate with appropriate source keyword depending on class
         if issubclass(cls, (CorrespondenceExtractor, DarwinExtractor)):
@@ -414,18 +424,21 @@ def _build_stage1_agents(
                 xml_sources=urls,
                 agent_id=agent_id,
                 deduplicator=deduplicator,
+                manifest_tier_map=extractor_tier_map,
             )
         elif issubclass(cls, (DialogueExtractor, PlatoExtractor)):
             extractor = cls(
                 text_sources=urls,
                 agent_id=agent_id,
                 deduplicator=deduplicator,
+                manifest_tier_map=extractor_tier_map,
             )
         elif issubclass(cls, PDFAcademicExtractor):
             extractor = cls(
                 pdf_sources=urls,
                 agent_id=agent_id,
                 deduplicator=deduplicator,
+                manifest_tier_map=extractor_tier_map,
             )
         elif issubclass(cls, GitHubIssuesExtractor):
             # GitHubIssuesExtractor takes repo slugs, not full URLs; skip
@@ -490,14 +503,13 @@ def run_stage1_pipeline(
                                str(hf_cfg.get("chunk_size_mb", 50))))
 
     manifest_rows = load_stage1_manifest(manifest_path)
-    stage1_rows = [r for r in manifest_rows if str(r.get("tier", "")).strip() == "1"]
-    logger.info("Stage 1 pipeline: %d documents in manifest", len(stage1_rows))
+    logger.info("Stage 1 pipeline: %d documents in manifest", len(manifest_rows))
 
     deduplicator = SemanticDeduplicator(threshold=dedup_threshold, model_name=dedup_model)
     uploader = StreamUploader(repo_id=_repo, token=_token, chunk_size_mb=chunk_mb, dry_run=_dry)
     indexer = DBIndexer() if enable_db else None
 
-    agents = _build_stage1_agents(stage1_rows, deduplicator)
+    agents = _build_stage1_agents(manifest_rows, deduplicator)
     num_agents = max(1, len(agents))
 
     logger.info("Stage 1: launching %d extraction agents | dry_run=%s", num_agents, _dry)
@@ -527,7 +539,7 @@ def run_stage1_pipeline(
         "repo_id": _repo,
         "dry_run": _dry,
         "db_summary": db_summary,
-        "manifest_documents": len(stage1_rows),
+        "manifest_documents": len(manifest_rows),
     }
 
 

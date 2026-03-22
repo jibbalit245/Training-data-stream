@@ -111,3 +111,22 @@ def tag_prior(text: str) -> int:
         if scores[code] == max_score:
             return code
     return 0
+
+
+PRIOR_NAMES = {
+    0: "none",
+    1: "holographic_projection",
+    2: "tool_as_cognitive_prosthetic",
+    3: "symmetry_breaking",
+    4: "emergence",
+    5: "dimensional_analysis",
+    6: "conservation_laws",
+    7: "feedback_loops",
+    8: "information_geometry",
+    9: "renormalization",
+}
+
+
+def tag_prior_name(text: str) -> str:
+    """Return the string name of the structural prior."""
+    return PRIOR_NAMES[tag_prior(text)]

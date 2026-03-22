@@ -14,14 +14,15 @@ Output schema (per record)
 --------------------------
 {
     "doc_id": "<uuid>",
-    "text": "<|system|>...<|user|>TARGET: ...<|end|><|assistant|>...<|end|>",
+    "raw_content": "<original source text>",
+    "text": "<|im_start|>system\\n...<|im_end|>\\n<|im_start|>user\\n...<|im_end|>\\n<|im_start|>assistant\\n<|im_end|>",
     "messages": [
         {"role": "system",    "content": "..."},
-        {"role": "user",      "content": "TARGET: ..."},
-        {"role": "assistant", "content": "..."}
+        {"role": "user",      "content": "..."},
+        {"role": "assistant", "content": ""}
     ],
     "metadata": {
-        "tier": 1,                       # 1-5
+        "tier": 1,                       # 0-10 (0=unclassified, 1-5=knowledge, 6-10=application/scenario)
         "structural_prior": 3,           # 0-9  (0 = untagged, 1-9 = specific prior)
         "domain": ["physics", "math"],
         "doc_type": "correspondence",
@@ -34,16 +35,26 @@ Output schema (per record)
     }
 }
 
-Assistant-turn placeholder
+Assistant-turn generation
 --------------------------
-The ``assistant`` turn in every record currently holds a placeholder string.
-This is intentional scaffolding for a later synthetic-data generation phase
-(e.g. using a larger model to produce analysis completions).  For pre-training
-the ``text`` field carries the training signal; the ``messages`` structure is
-preserved for the subsequent SFT / fine-tuning phase.  If the data is fed
-directly into a pre-training mixture the placeholder assistant turn is harmless
-because the model will be trained on the full ChatML-formatted ``text`` field,
-not on isolated turns.
+The ``assistant`` turn in every record is intentionally left blank at
+extraction time.  It is populated in a separate downstream step by
+``observe_probe_generator.py``, which calls a capable model to produce
+OBSERVE/PROBE completions.  The ``raw_content`` field preserves the
+original source text so the generator can access it without parsing the
+ChatML-formatted ``text`` field.
+
+Token format
+------------
+Records use Qwen 2.5 ChatML tokens: ``<|im_start|>`` / ``<|im_end|>``.
+Format::
+
+    <|im_start|>system
+    {system_prompt}<|im_end|>
+    <|im_start|>user
+    {user_content}<|im_end|>
+    <|im_start|>assistant
+    {assistant_content}<|im_end|>
 """
 
 from __future__ import annotations
@@ -63,6 +74,8 @@ from tenacity import (
     wait_exponential,
     before_sleep_log,
 )
+
+from tier_prompts import get_tier_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +97,10 @@ network_retry = retry(
 # ---------------------------------------------------------------------------
 # Valid metadata values
 # ---------------------------------------------------------------------------
-VALID_TIERS = {1, 2, 3, 4, 5}
+VALID_TIERS = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+# 0 = unclassified
+# 1-5 = knowledge tiers (assigned by classifier or manifest)
+# 6-10 = application/scenario tiers (assigned manually, never by classifier)
 # 0 = untagged (no structural-prior signals detected); 1-9 = specific priors
 VALID_PRIORS = {0} | set(range(1, 10))
 VALID_DOMAINS = {
@@ -127,25 +143,19 @@ def make_record(
     participants = participants or []
     extra_metadata = extra_metadata or {}
 
-    system_prompt = (
-        "You are an expert in cross-domain reasoning. "
-        "Analyse the following passage and explain the reasoning, "
-        "analogies, and conceptual bridges it demonstrates."
-    )
-    user_content = f"TARGET: {raw_text}"
-    assistant_content = (
-        "This passage demonstrates reasoning across domains. "
-        "[Extracted for training — assistant turn to be completed by fine-tuning.]"
-    )
+    system_prompt = get_tier_prompt(tier)
+    user_content = raw_text
+    assistant_content = ""  # Generated in downstream observe_probe_generator.py
 
     formatted_text = (
-        f"<|system|>{system_prompt}<|end|>"
-        f"<|user|>{user_content}<|end|>"
-        f"<|assistant|>{assistant_content}<|end|>"
+        f"<|im_start|>system\n{system_prompt}<|im_end|>\n"
+        f"<|im_start|>user\n{user_content}<|im_end|>\n"
+        f"<|im_start|>assistant\n{assistant_content}<|im_end|>"
     )
 
     return {
         "doc_id": str(uuid.uuid4()),
+        "raw_content": raw_text,
         "text": formatted_text,
         "messages": [
             {"role": "system",    "content": system_prompt},
@@ -188,10 +198,12 @@ class BaseExtractor(ABC):
         agent_id: str = "agent_000",
         deduplicator=None,
         min_text_length: int = 80,
+        manifest_tier_map: Optional[dict] = None,
     ):
         self.agent_id = agent_id
         self.deduplicator = deduplicator
         self.min_text_length = min_text_length
+        self.manifest_tier_map: dict = manifest_tier_map or {}
         self._log = logging.getLogger(self.__class__.__name__)
 
     # ------------------------------------------------------------------

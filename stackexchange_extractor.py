@@ -94,11 +94,13 @@ class StackExchangeExtractor(BaseExtractor):
         agent_id: str = "agent_000",
         deduplicator=None,
         min_text_length: int = 150,
+        manifest_tier_map: Optional[dict] = None,
     ):
         super().__init__(
             agent_id=agent_id,
             deduplicator=deduplicator,
             min_text_length=min_text_length,
+            manifest_tier_map=manifest_tier_map,
         )
         self.sites = sites or ["math", "physics", "philosophy", "cs"]
         self.min_score = min_score
@@ -186,11 +188,13 @@ class StackExchangeExtractor(BaseExtractor):
 
     def _build_record(self, thread: str, question: dict, site: str) -> dict:
         domain = _SITE_DOMAIN_MAP.get(site, "cross_domain")
+        question_url = question.get("link", f"https://{site}.stackexchange.com")
         return make_record(
             raw_text=thread,
-            source_url=question.get("link", f"https://{site}.stackexchange.com"),
+            source_url=question_url,
             doc_type="synthesis",
-            tier=classify_tier(thread, doc_type="synthesis"),
+            tier=classify_tier(thread, doc_type="synthesis",
+                               manifest_tier=self.manifest_tier_map.get(question_url)),
             quality_score=min(1.0, (question.get("score", 0) or 0) / 100),
             license_="CC_BY_SA",
             agent_id=self.agent_id,

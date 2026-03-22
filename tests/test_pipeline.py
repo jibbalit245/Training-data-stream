@@ -153,13 +153,15 @@ class TestSingleDocumentEndToEnd:
             agent_id="agent_001",
         )
         assert "doc_id" in record
+        assert "raw_content" in record
         assert "text" in record
         assert "messages" in record
         assert "metadata" in record
         assert uuid.UUID(record["doc_id"])  # valid UUID
-        assert "<|system|>" in record["text"]
-        assert "<|user|>" in record["text"]
-        assert "<|assistant|>" in record["text"]
+        assert "<|im_start|>system" in record["text"]
+        assert "<|im_start|>user" in record["text"]
+        assert "<|im_start|>assistant" in record["text"]
+        assert "<|im_end|>" in record["text"]
         assert isinstance(record["messages"], list)
         assert len(record["messages"]) == 3
         meta = record["metadata"]
@@ -488,7 +490,7 @@ class TestMetadataAccuracy:
         return _make_unique_records(n)
 
     def test_all_tiers_valid(self):
-        """Every record has a tier in {1,2,3,4,5}."""
+        """Every record has a tier in VALID_TIERS (0-10)."""
         for rec in self._sample_records(20):
             assert rec["metadata"]["tier"] in VALID_TIERS, (
                 f"Invalid tier {rec['metadata']['tier']}"
@@ -745,3 +747,317 @@ class TestClassifierImprovements:
         for text in test_texts:
             score = _compute_quality_score(text)
             assert 0.0 <= score <= 1.0, f"Quality score {score} out of range for text {repr(text)[:40]!r}"
+
+
+# ===========================================================================
+# Test 7: New output format and supporting components
+# ===========================================================================
+class TestNewOutputFormat:
+    """Validate all changes from the pipeline update."""
+
+    # ------------------------------------------------------------------
+    # Change 1: ChatML tokens
+    # ------------------------------------------------------------------
+
+    def test_chatml_tokens_im_start_im_end(self):
+        """make_record uses <|im_start|>/<|im_end|> Qwen ChatML tokens."""
+        record = make_record(
+            raw_text=DARWIN_LETTER_TEXT,
+            source_url="test://chatml",
+            doc_type="correspondence",
+            agent_id="agent_001",
+        )
+        assert "<|im_start|>system" in record["text"]
+        assert "<|im_start|>user" in record["text"]
+        assert "<|im_start|>assistant" in record["text"]
+        assert "<|im_end|>" in record["text"]
+        # Old tokens must NOT appear
+        assert "<|system|>" not in record["text"]
+        assert "<|user|>" not in record["text"]
+        assert "<|assistant|>" not in record["text"]
+        assert "<|end|>" not in record["text"]
+
+    def test_chatml_newline_after_role(self):
+        """The role tag is followed by a newline, not the content inline."""
+        record = make_record(
+            raw_text="Sample text for testing.",
+            source_url="test://newline",
+            doc_type="dialogue",
+            agent_id="agent_001",
+        )
+        assert "<|im_start|>system\n" in record["text"]
+        assert "<|im_start|>user\n" in record["text"]
+
+    # ------------------------------------------------------------------
+    # Change 2: Remove "TARGET:" prefix
+    # ------------------------------------------------------------------
+
+    def test_no_target_prefix_in_user_content(self):
+        """User content does not start with 'TARGET: '."""
+        record = make_record(
+            raw_text="Some passage about reasoning.",
+            source_url="test://notarget",
+            doc_type="dialogue",
+            agent_id="agent_001",
+        )
+        user_msg = next(m for m in record["messages"] if m["role"] == "user")
+        assert not user_msg["content"].startswith("TARGET:")
+        assert user_msg["content"] == "Some passage about reasoning."
+
+    # ------------------------------------------------------------------
+    # Change 3 & 4: Tier-based system prompts
+    # ------------------------------------------------------------------
+
+    def test_tier_prompts_module_importable(self):
+        """tier_prompts module is importable and has 10 entries."""
+        from tier_prompts import TIER_PROMPTS, get_tier_prompt
+        assert len(TIER_PROMPTS) == 10
+        for tier_num in range(1, 11):
+            assert tier_num in TIER_PROMPTS
+            assert isinstance(TIER_PROMPTS[tier_num], str)
+            assert len(TIER_PROMPTS[tier_num]) > 50
+
+    def test_get_tier_prompt_returns_string(self):
+        """get_tier_prompt returns a non-empty string for all valid tiers."""
+        from tier_prompts import get_tier_prompt
+        for tier_num in range(1, 11):
+            prompt = get_tier_prompt(tier_num)
+            assert isinstance(prompt, str)
+            assert len(prompt) > 0
+
+    def test_get_tier_prompt_fallback(self):
+        """get_tier_prompt falls back to tier 1 for unknown tiers."""
+        from tier_prompts import get_tier_prompt, TIER_PROMPTS
+        assert get_tier_prompt(99) == TIER_PROMPTS[1]
+        assert get_tier_prompt(0) == TIER_PROMPTS[1]
+
+    def test_make_record_uses_tier_based_system_prompt(self):
+        """make_record uses different system prompts for different tiers."""
+        rec_t1 = make_record(
+            raw_text="test passage",
+            source_url="test://t1",
+            doc_type="correspondence",
+            tier=1,
+            agent_id="agent_001",
+        )
+        rec_t5 = make_record(
+            raw_text="test passage",
+            source_url="test://t5",
+            doc_type="correspondence",
+            tier=5,
+            agent_id="agent_001",
+        )
+        system_t1 = next(m for m in rec_t1["messages"] if m["role"] == "system")
+        system_t5 = next(m for m in rec_t5["messages"] if m["role"] == "system")
+        assert system_t1["content"] != system_t5["content"]
+
+    def test_make_record_system_prompt_not_generic(self):
+        """make_record no longer uses the old generic system prompt."""
+        record = make_record(
+            raw_text="test",
+            source_url="test://generic",
+            doc_type="dialogue",
+            agent_id="agent_001",
+        )
+        system_msg = next(m for m in record["messages"] if m["role"] == "system")
+        assert "expert in cross-domain reasoning" not in system_msg["content"]
+
+    # ------------------------------------------------------------------
+    # Change 5: Blank assistant turn + raw_content field
+    # ------------------------------------------------------------------
+
+    def test_assistant_turn_is_empty(self):
+        """Assistant turn is empty string in extracted records."""
+        record = make_record(
+            raw_text="Test content for the record.",
+            source_url="test://blank_assistant",
+            doc_type="correspondence",
+            agent_id="agent_001",
+        )
+        assistant_msg = next(m for m in record["messages"] if m["role"] == "assistant")
+        assert assistant_msg["content"] == ""
+
+    def test_raw_content_field_present(self):
+        """Record contains a raw_content field with the original source text."""
+        raw = "Original unformatted source text."
+        record = make_record(
+            raw_text=raw,
+            source_url="test://rawcontent",
+            doc_type="correspondence",
+            agent_id="agent_001",
+        )
+        assert "raw_content" in record
+        assert record["raw_content"] == raw
+
+    def test_raw_content_not_prefixed(self):
+        """raw_content is the exact raw_text with no prefix or wrapper."""
+        raw = "Exactly this text and nothing else."
+        record = make_record(
+            raw_text=raw,
+            source_url="test://exact",
+            doc_type="dialogue",
+            agent_id="agent_001",
+        )
+        assert record["raw_content"] == raw
+
+    # ------------------------------------------------------------------
+    # Change 7: VALID_TIERS expanded to 0-10
+    # ------------------------------------------------------------------
+
+    def test_valid_tiers_expanded(self):
+        """VALID_TIERS now includes 0-10."""
+        assert 0 in VALID_TIERS
+        assert 6 in VALID_TIERS
+        assert 7 in VALID_TIERS
+        assert 8 in VALID_TIERS
+        assert 9 in VALID_TIERS
+        assert 10 in VALID_TIERS
+        assert len(VALID_TIERS) == 11
+
+    def test_make_record_tier_10_valid(self):
+        """make_record accepts tier 10 and uses the correct system prompt."""
+        from tier_prompts import TIER_PROMPTS
+        record = make_record(
+            raw_text="A research partnership passage.",
+            source_url="test://tier10",
+            doc_type="dialogue",
+            tier=10,
+            agent_id="agent_001",
+        )
+        assert record["metadata"]["tier"] == 10
+        system_msg = next(m for m in record["messages"] if m["role"] == "system")
+        assert system_msg["content"] == TIER_PROMPTS[10]
+
+    # ------------------------------------------------------------------
+    # Change 8: classify_tier respects manifest_tier
+    # ------------------------------------------------------------------
+
+    def test_classify_tier_manifest_tier_overrides_heuristic(self):
+        """classify_tier returns manifest_tier when provided."""
+        synthesis_text = (
+            "This synthesis draws a bridge between quantum mechanics and information theory. "
+            "The analogy reveals a cross-domain connection: the paradigm of entropy."
+        )
+        # Without manifest_tier, this should be tier 5 (synthesis)
+        heuristic_tier = classify_tier(synthesis_text)
+        # With manifest_tier=1, must return 1 regardless
+        assert classify_tier(synthesis_text, manifest_tier=1) == 1
+        assert classify_tier(synthesis_text, manifest_tier=4) == 4
+
+    def test_classify_tier_manifest_tier_none_uses_heuristic(self):
+        """classify_tier uses the heuristic when manifest_tier is None."""
+        axiom_text = (
+            "By definition, we assume that this axiom holds as a first principle. "
+            "Let us define the fundamental postulate: given that this premise is true, "
+            "suppose that the definition applies universally."
+        )
+        # manifest_tier=None → heuristic must run → expect tier 1
+        assert classify_tier(axiom_text, manifest_tier=None) == 1
+
+    def test_classify_tier_invalid_manifest_tier_uses_heuristic(self):
+        """classify_tier ignores manifest_tier values outside VALID_TIERS."""
+        axiom_text = (
+            "By definition, we assume that this axiom holds as a first principle."
+        )
+        # 99 is not in VALID_TIERS → should fall through to heuristic
+        result = classify_tier(axiom_text, manifest_tier=99)
+        assert result in VALID_TIERS
+
+    # ------------------------------------------------------------------
+    # Change 9: prior_tagger string labels
+    # ------------------------------------------------------------------
+
+    def test_prior_names_mapping_complete(self):
+        """PRIOR_NAMES contains all 10 entries (0-9)."""
+        from prior_tagger import PRIOR_NAMES
+        assert len(PRIOR_NAMES) == 10
+        assert PRIOR_NAMES[0] == "none"
+        for code in range(1, 10):
+            assert code in PRIOR_NAMES
+            assert isinstance(PRIOR_NAMES[code], str)
+            assert len(PRIOR_NAMES[code]) > 0
+
+    def test_tag_prior_name_returns_string(self):
+        """tag_prior_name returns the correct string label."""
+        from prior_tagger import tag_prior_name
+        feedback_text = (
+            "The feedback loop maintains homeostasis through negative feedback. "
+            "The control system uses a PID controller for stability."
+        )
+        assert tag_prior_name(feedback_text) == "feedback_loops"
+
+    def test_tag_prior_name_untagged_returns_none_string(self):
+        """tag_prior_name returns 'none' for untagged passages."""
+        from prior_tagger import tag_prior_name
+        generic = (
+            "This is a general discussion about everyday topics with no scientific framework."
+        )
+        assert tag_prior_name(generic) == "none"
+
+    # ------------------------------------------------------------------
+    # observe_probe_generator: basic imports and helpers
+    # ------------------------------------------------------------------
+
+    def test_observe_probe_generator_importable(self):
+        """observe_probe_generator is importable without error."""
+        import observe_probe_generator
+        assert hasattr(observe_probe_generator, "GENERATION_PROMPT")
+        assert hasattr(observe_probe_generator, "validate_content_ratio")
+        assert hasattr(observe_probe_generator, "complete_record")
+        assert hasattr(observe_probe_generator, "run_observe_probe_generator")
+
+    def test_validate_content_ratio_accepts_valid(self):
+        """validate_content_ratio accepts ratios in [0.70, 0.85]."""
+        from observe_probe_generator import validate_content_ratio
+        # 100 content tokens, 18 meta tokens → ratio ≈ 0.847 (within range)
+        raw = "word " * 100
+        meta = "word " * 18
+        valid, ratio = validate_content_ratio(raw, meta)
+        assert valid
+        assert 0.70 <= ratio <= 0.85
+
+    def test_validate_content_ratio_rejects_short_meta(self):
+        """validate_content_ratio rejects when content ratio is too high (meta too short)."""
+        from observe_probe_generator import validate_content_ratio
+        # 100 content, 2 meta → ratio ≈ 0.98 > 0.85
+        raw = "word " * 100
+        meta = "word " * 2
+        valid, ratio = validate_content_ratio(raw, meta)
+        assert not valid
+        assert ratio > 0.85
+
+    def test_validate_content_ratio_rejects_long_meta(self):
+        """validate_content_ratio rejects when content ratio is too low (meta too long)."""
+        from observe_probe_generator import validate_content_ratio
+        # 10 content, 100 meta → ratio ≈ 0.09 < 0.70
+        raw = "word " * 10
+        meta = "word " * 100
+        valid, ratio = validate_content_ratio(raw, meta)
+        assert not valid
+        assert ratio < 0.70
+
+    def test_complete_record_fills_assistant_turn(self):
+        """complete_record fills the assistant turn and rebuilds the text field."""
+        from observe_probe_generator import complete_record
+        record = make_record(
+            raw_text="Test passage.",
+            source_url="test://complete",
+            doc_type="dialogue",
+            agent_id="agent_001",
+        )
+        obs_probe = "[OBSERVE] The author does X.\n\n[PROBE] Why does Y follow?"
+        completed = complete_record(record, obs_probe)
+        assistant_msg = next(m for m in completed["messages"] if m["role"] == "assistant")
+        assert assistant_msg["content"] == obs_probe
+        assert obs_probe in completed["text"]
+        # Original record not mutated
+        orig_assistant = next(m for m in record["messages"] if m["role"] == "assistant")
+        assert orig_assistant["content"] == ""
+
+    def test_generation_prompt_contains_epistemic_tags(self):
+        """GENERATION_PROMPT documents the four epistemic status tags."""
+        from observe_probe_generator import GENERATION_PROMPT
+        assert "[GROUND]" in GENERATION_PROMPT
+        assert "[INFERENCE]" in GENERATION_PROMPT
+        assert "[SPECULATION]" in GENERATION_PROMPT
+        assert "[BOUNDARY]" in GENERATION_PROMPT
