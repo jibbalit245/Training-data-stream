@@ -1,163 +1,132 @@
 """
 stream_uploader.py
-Hugging Face Dataset streaming uploader.
+Local Parquet dataset writer.
 
 Design
 ------
 - Buffers extraction records in memory.
 - Flushes when buffer reaches ``chunk_size_mb`` MB (uncompressed JSON estimate).
-- Uploads each chunk as a Parquet shard to a HF Dataset repository.
+- Writes each chunk as a Parquet shard to a local output directory located
+  one level above the repository root (sibling of the repo, not inside it).
 - Thread-safe: multiple extractor threads can call ``add()`` concurrently.
-- Retry logic (tenacity) on every upload attempt.
-- Provides a progress summary and upload confirmation before discarding buffer.
-- No local disk writes: everything streams through memory.
+- Provides a progress summary before discarding buffer.
+- No network uploads: everything is stored on local disk.
 
-Upload confirmation
--------------------
-After each chunk is pushed via ``api.create_commit()``, the method verifies
-the file appears in the repo before marking the chunk as complete.
+Output location
+---------------
+Chunks are written to ``<output_dir>/<split>/chunk_XXXXXX.parquet``.
+The default ``output_dir`` is the ``output`` folder immediately above the
+repository (i.e. ``../output`` relative to this file's directory), so the
+data lives outside the repo tree.
 """
 
 from __future__ import annotations
 
-import io
 import json
 import logging
 import os
-import time
+from pathlib import Path
 from threading import Lock
 from typing import List, Optional
-
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-    before_sleep_log,
-)
 
 logger = logging.getLogger(__name__)
 
 _BYTES_PER_MB = 1024 * 1024
 _CHUNK_SIZE_MB = float(os.getenv("HF_CHUNK_SIZE_MB", "50"))
-_HF_REPO_ID = os.getenv("HF_REPO_ID", "")
-_HF_TOKEN = os.getenv("HF_TOKEN", "")
 _HF_SPLIT = os.getenv("HF_SPLIT", "train")
+
+# Default output directory: one level above the repo root
+_DEFAULT_OUTPUT_DIR = str(
+    Path(__file__).resolve().parent.parent / "output"
+)
+_OUTPUT_DIR = os.getenv("OUTPUT_DIR", _DEFAULT_OUTPUT_DIR)
 
 
 def _json_bytes(record: dict) -> int:
     return len(json.dumps(record, ensure_ascii=False).encode("utf-8")) + 1
 
 
-@retry(
-    stop=stop_after_attempt(5),
-    wait=wait_exponential(multiplier=1, min=2, max=60),
-    before_sleep=before_sleep_log(logger, logging.WARNING),
-    reraise=True,
-)
-def _push_chunk_to_hf(
+def _write_chunk_local(
     records: List[dict],
-    repo_id: str,
-    token: str,
+    output_dir: str,
     chunk_index: int,
     split: str = "train",
 ) -> None:
     """
-    Serialise *records* to Parquet in memory and commit to HF repo.
-    Verifies file exists in repo after upload.
+    Serialise *records* to Parquet and write to *output_dir*/<split>/.
     """
-    from datasets import Dataset
-    from huggingface_hub import CommitOperationAdd, HfApi
+    import pyarrow as pa
     import pyarrow.parquet as pq
 
     if not records:
         return
 
-    ds = Dataset.from_list(records)
-    buf = io.BytesIO()
-    pq.write_table(ds.data.table, buf, compression="snappy")
-    buf.seek(0)
-    parquet_bytes = buf.read()
+    dest_dir = Path(output_dir) / split
+    dest_dir.mkdir(parents=True, exist_ok=True)
 
-    api = HfApi(token=token)
-    path_in_repo = f"data/{split}/chunk_{chunk_index:06d}.parquet"
+    dest_path = dest_dir / f"chunk_{chunk_index:06d}.parquet"
 
-    api.create_commit(
-        repo_id=repo_id,
-        repo_type="dataset",
-        operations=[CommitOperationAdd(
-            path_in_repo=path_in_repo,
-            path_or_fileobj=io.BytesIO(parquet_bytes),
-        )],
-        commit_message=f"Add {split} chunk {chunk_index} ({len(records)} records)",
-    )
+    table = pa.Table.from_pylist(records)
+    pq.write_table(table, str(dest_path), compression="snappy")
 
-    # Verify upload succeeded
-    try:
-        info = api.get_paths_info(repo_id=repo_id, repo_type="dataset", paths=[path_in_repo])
-        if not info:
-            raise IOError(
-                f"Upload verification failed for repo '{repo_id}': "
-                f"chunk {chunk_index} at '{path_in_repo}' not found after commit"
-            )
-    except Exception as verify_exc:
-        logger.warning("Upload verification check failed (non-fatal): %s", verify_exc)
-
+    size_mb = dest_path.stat().st_size / _BYTES_PER_MB
     logger.info(
-        "Uploaded chunk %d: %d records, %.2f MB → %s/%s",
+        "Wrote chunk %d: %d records, %.2f MB → %s",
         chunk_index,
         len(records),
-        len(parquet_bytes) / _BYTES_PER_MB,
-        repo_id,
-        path_in_repo,
+        size_mb,
+        dest_path,
     )
 
 
 class StreamUploader:
     """
-    Thread-safe streaming uploader for Hugging Face Datasets.
+    Thread-safe local Parquet writer for extracted dataset records.
 
     Usage
     -----
     ::
 
-        with StreamUploader(repo_id="user/dataset", token="...") as up:
+        with StreamUploader() as up:
             for record in extractor.stream():
                 up.add(record)
         # final flush happens on __exit__
 
     Parameters
     ----------
-    repo_id : str
-        Hugging Face dataset repo "owner/name".
-    token : str
-        HF API token with write access.
+    output_dir : str, optional
+        Directory to write Parquet chunks into.  Defaults to the ``output``
+        folder one level above the repository root (set via ``OUTPUT_DIR``
+        env var or the compiled-in ``_DEFAULT_OUTPUT_DIR``).
     chunk_size_mb : float
         Uncompressed JSON buffer size (MB) before auto-flush.
     split : str
-        Dataset split name.
+        Sub-directory name used inside *output_dir* (e.g. ``"train"``).
     dry_run : bool
-        If True, collect records but skip HF upload (for testing).
+        If True, collect records but skip disk writes (for testing).
+    repo_id : str, optional
+        Accepted for API compatibility; not used for local storage.
+    token : str, optional
+        Accepted for API compatibility; not used for local storage.
     """
 
     def __init__(
         self,
-        repo_id: Optional[str] = None,
-        token: Optional[str] = None,
+        output_dir: Optional[str] = None,
         chunk_size_mb: float = _CHUNK_SIZE_MB,
         split: str = _HF_SPLIT,
         dry_run: bool = False,
+        # kept for call-site compatibility; unused in local mode
+        repo_id: Optional[str] = None,
+        token: Optional[str] = None,
     ):
-        self.repo_id = repo_id or _HF_REPO_ID
-        self.token = token or _HF_TOKEN
+        self.output_dir = output_dir if output_dir is not None else _OUTPUT_DIR
         self.chunk_size_mb = chunk_size_mb
         self.split = split
         self.dry_run = dry_run
-
-        if not self.dry_run:
-            if not self.repo_id:
-                raise ValueError("HF_REPO_ID must be set (or pass repo_id=)")
-            if not self.token:
-                raise ValueError("HF_TOKEN must be set (or pass token=)")
+        # retained so existing callers that read these attrs don't break
+        self.repo_id = repo_id or ""
+        self.token = token or ""
 
         self._buffer: List[dict] = []
         self._buffer_bytes: int = 0
@@ -212,20 +181,19 @@ class StreamUploader:
 
         if self.dry_run:
             logger.info(
-                "[dry_run] Would upload chunk %d: %d records", chunk_idx, len(records)
+                "[dry_run] Would write chunk %d: %d records", chunk_idx, len(records)
             )
             return
 
         try:
-            _push_chunk_to_hf(
+            _write_chunk_local(
                 records=records,
-                repo_id=self.repo_id,
-                token=self.token,
+                output_dir=self.output_dir,
                 chunk_index=chunk_idx,
                 split=self.split,
             )
         except Exception as exc:
-            logger.error("Chunk %d upload failed after retries: %s", chunk_idx, exc)
+            logger.error("Chunk %d write failed: %s", chunk_idx, exc)
             # Re-queue so data is not lost
             self._buffer = records + self._buffer
             self._buffer_bytes = sum(_json_bytes(r) for r in self._buffer)
@@ -241,7 +209,7 @@ class StreamUploader:
 
     def __repr__(self) -> str:
         return (
-            f"StreamUploader(repo={self.repo_id!r}, "
+            f"StreamUploader(output_dir={self.output_dir!r}, "
             f"records={self._total_records}, chunks={self._chunk_index}, "
             f"dry_run={self.dry_run})"
         )

@@ -251,24 +251,27 @@ def run_agent(
 # Orchestration
 # ---------------------------------------------------------------------------
 def run_pipeline(
-    repo_id: Optional[str] = None,
-    token: Optional[str] = None,
+    output_dir: Optional[str] = None,
     num_agents: int = 10,
     dry_run: Optional[bool] = None,
     config_path: str = "config.yaml",
     enable_db: bool = True,
+    # kept for call-site compatibility; unused in local mode
+    repo_id: Optional[str] = None,
+    token: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Launch all extraction agents in parallel and stream results to HF.
+    Launch all extraction agents in parallel and write results to local disk.
 
     Parameters
     ----------
-    repo_id : str, optional     Override HF_REPO_ID.
-    token : str, optional       Override HF_TOKEN.
+    output_dir : str, optional  Override OUTPUT_DIR (folder one level above repo).
     num_agents : int            Number of parallel agents (default 10).
-    dry_run : bool, optional    Skip HF upload when True.
+    dry_run : bool, optional    Skip disk writes when True.
     config_path : str           Path to config.yaml.
     enable_db : bool            Create/update SQLite index.
+    repo_id : str, optional     Accepted for compatibility; not used.
+    token : str, optional       Accepted for compatibility; not used.
 
     Returns
     -------
@@ -276,10 +279,11 @@ def run_pipeline(
     """
     cfg = _load_config(config_path)
     pip_cfg = cfg.get("pipeline", {})
-    hf_cfg = cfg.get("huggingface", {})
+    out_cfg = cfg.get("output", {})
 
-    _repo = repo_id or hf_cfg.get("repo_id") or os.getenv("HF_REPO_ID", "")
-    _token = token or hf_cfg.get("token") or os.getenv("HF_TOKEN", "")
+    _output_dir = output_dir if output_dir is not None else (
+        os.getenv("OUTPUT_DIR") or out_cfg.get("dir") or None
+    )
     _dry = dry_run if dry_run is not None else (
         os.getenv("DRY_RUN", str(pip_cfg.get("dry_run", "false"))).lower()
         in ("1", "true", "yes")
@@ -288,12 +292,17 @@ def run_pipeline(
                                       str(pip_cfg.get("dedup_threshold", 0.92))))
     dedup_model = os.getenv("DEDUP_MODEL", pip_cfg.get("dedup_model", "all-MiniLM-L6-v2"))
     chunk_mb = float(os.getenv("HF_CHUNK_SIZE_MB",
-                               str(hf_cfg.get("chunk_size_mb", 50))))
+                               str(out_cfg.get("chunk_size_mb", 50))))
 
-    logger.info("Pipeline: %d agents | repo=%s | dry_run=%s", num_agents, _repo, _dry)
+    logger.info("Pipeline: %d agents | output_dir=%s | dry_run=%s",
+                num_agents, _output_dir or "(default)", _dry)
 
     deduplicator = SemanticDeduplicator(threshold=dedup_threshold, model_name=dedup_model)
-    uploader = StreamUploader(repo_id=_repo, token=_token, chunk_size_mb=chunk_mb, dry_run=_dry)
+    uploader = StreamUploader(
+        output_dir=_output_dir,
+        chunk_size_mb=chunk_mb,
+        dry_run=_dry,
+    )
     indexer = DBIndexer() if enable_db else None
 
     agents = build_agents(cfg, deduplicator, num_agents)
@@ -320,7 +329,7 @@ def run_pipeline(
     return {
         "total_records": total,
         "agents": results,
-        "repo_id": _repo,
+        "output_dir": uploader.output_dir,
         "dry_run": _dry,
         "db_summary": db_summary,
     }
@@ -455,42 +464,47 @@ def _build_stage1_agents(
 
 def run_stage1_pipeline(
     manifest_path: str = "stage1_manifest.csv",
-    repo_id: Optional[str] = None,
-    token: Optional[str] = None,
+    output_dir: Optional[str] = None,
     dry_run: Optional[bool] = None,
     config_path: str = "config.yaml",
     enable_db: bool = True,
+    # kept for call-site compatibility; unused in local mode
+    repo_id: Optional[str] = None,
+    token: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Run the Stage 1 manifest-driven extraction pipeline.
 
     Reads ``stage1_manifest.csv``, groups documents by extractor type,
-    and runs all extractors in parallel, streaming results to HF.
+    and runs all extractors in parallel, writing results to local disk.
 
     Parameters
     ----------
     manifest_path : str
         Path to the Stage 1 source manifest CSV.
-    repo_id : str, optional
-        Override HF_REPO_ID.
-    token : str, optional
-        Override HF_TOKEN.
+    output_dir : str, optional
+        Override OUTPUT_DIR (folder one level above repo).
     dry_run : bool, optional
-        Skip HF upload when True.
+        Skip disk writes when True.
     config_path : str
         Path to config.yaml.
     enable_db : bool
         Create/update SQLite index.
+    repo_id : str, optional
+        Accepted for compatibility; not used.
+    token : str, optional
+        Accepted for compatibility; not used.
 
     Returns
     -------
     dict with pipeline summary including total_records and per-agent counts.
     """
     cfg = _load_config(config_path)
-    hf_cfg = cfg.get("huggingface", {})
+    out_cfg = cfg.get("output", {})
 
-    _repo = repo_id or hf_cfg.get("repo_id") or os.getenv("HF_REPO_ID", "")
-    _token = token or hf_cfg.get("token") or os.getenv("HF_TOKEN", "")
+    _output_dir = output_dir if output_dir is not None else (
+        os.getenv("OUTPUT_DIR") or out_cfg.get("dir") or None
+    )
     _dry = dry_run if dry_run is not None else (
         os.getenv("DRY_RUN", str(cfg.get("pipeline", {}).get("dry_run", "false"))).lower()
         in ("1", "true", "yes")
@@ -500,13 +514,17 @@ def run_stage1_pipeline(
     dedup_model = os.getenv("DEDUP_MODEL",
                             cfg.get("pipeline", {}).get("dedup_model", "all-MiniLM-L6-v2"))
     chunk_mb = float(os.getenv("HF_CHUNK_SIZE_MB",
-                               str(hf_cfg.get("chunk_size_mb", 50))))
+                               str(out_cfg.get("chunk_size_mb", 50))))
 
     manifest_rows = load_stage1_manifest(manifest_path)
     logger.info("Stage 1 pipeline: %d documents in manifest", len(manifest_rows))
 
     deduplicator = SemanticDeduplicator(threshold=dedup_threshold, model_name=dedup_model)
-    uploader = StreamUploader(repo_id=_repo, token=_token, chunk_size_mb=chunk_mb, dry_run=_dry)
+    uploader = StreamUploader(
+        output_dir=_output_dir,
+        chunk_size_mb=chunk_mb,
+        dry_run=_dry,
+    )
     indexer = DBIndexer() if enable_db else None
 
     agents = _build_stage1_agents(manifest_rows, deduplicator)
@@ -536,7 +554,7 @@ def run_stage1_pipeline(
     return {
         "total_records": total,
         "agents": results,
-        "repo_id": _repo,
+        "output_dir": uploader.output_dir,
         "dry_run": _dry,
         "db_summary": db_summary,
         "manifest_documents": len(manifest_rows),
@@ -555,9 +573,9 @@ if __name__ == "__main__":
                 manifest = arg.split("=", 1)[1]
         summary = run_stage1_pipeline(manifest_path=manifest)
         print(f"\nStage 1 done: {summary['total_records']} records from "
-              f"{summary['manifest_documents']} manifest documents → {summary['repo_id']}")
+              f"{summary['manifest_documents']} manifest documents → {summary['output_dir']}")
     else:
         summary = run_pipeline()
-        print(f"\nPipeline done: {summary['total_records']} records → {summary['repo_id']}")
+        print(f"\nPipeline done: {summary['total_records']} records → {summary['output_dir']}")
     if summary.get("db_summary"):
         print(f"DB index: {summary['db_summary']}")

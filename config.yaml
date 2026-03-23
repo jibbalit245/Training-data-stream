@@ -1,18 +1,19 @@
 # config.yaml
 # All secrets must be set as environment variables; never put real tokens here.
 
-huggingface:
-  repo_id: ${HF_REPO_ID}        # e.g. "username/reasoning-corpus"
-  token: ${HF_TOKEN}            # HF write token
+output:
+  # Directory to write Parquet chunks into.
+  # Defaults to the 'output' folder one level above the repository root
+  # (i.e. sibling of the repo, not inside it).  Override via OUTPUT_DIR env var.
+  dir: ${OUTPUT_DIR:-""}   # empty → use compiled-in default (../output)
   split: train
   chunk_size_mb: 50
-  private: false
 
 pipeline:
   num_agents: 10
   dedup_threshold: 0.92
   dedup_model: "all-MiniLM-L6-v2"
-  dry_run: false                # set true to skip HF upload during testing
+  dry_run: false                # set true to skip disk writes during testing
 
 retry:
   max_attempts: 5
