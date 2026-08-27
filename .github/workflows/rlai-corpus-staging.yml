@@ -1,0 +1,93 @@
+name: RLAI corpus staging
+
+on:
+  push:
+    branches:
+      - rlai-corpus-staging-20260827
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  ABCD_SHA256: 2bdf53ac359543dcdc38d55bc6513e78df120363f8f44870716e909f4606de15
+  DOLLY_SHA256: 2df9083338b4abd6bceb5635764dab5d833b393b55759dffb0959b6fcbf794ec
+  OASST_SHA256: 2ff4aa8999c911ffec7972ddf70359f220b3da184b731f3649f68b1391e19341
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Download pinned public sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p corpus/abcd corpus/dolly corpus/oasst corpus/cornell corpus/gsm8k
+          curl --fail --location --retry 5 --retry-all-errors \
+            'https://raw.githubusercontent.com/asappresearch/abcd/6b8700ce67c6b37b062dd7a60abc76d7ef832a97/data/abcd_v1.1.json.gz' \
+            -o corpus/abcd/abcd_v1.1.json.gz
+          curl --fail --location --retry 5 --retry-all-errors \
+            'https://raw.githubusercontent.com/asappresearch/abcd/6b8700ce67c6b37b062dd7a60abc76d7ef832a97/data/guidelines.json' \
+            -o corpus/abcd/guidelines.json
+          curl --fail --location --retry 5 --retry-all-errors \
+            'https://raw.githubusercontent.com/asappresearch/abcd/6b8700ce67c6b37b062dd7a60abc76d7ef832a97/data/ontology.json' \
+            -o corpus/abcd/ontology.json
+          curl --fail --location --retry 5 --retry-all-errors \
+            'https://raw.githubusercontent.com/asappresearch/abcd/6b8700ce67c6b37b062dd7a60abc76d7ef832a97/LICENSE' \
+            -o corpus/abcd/LICENSE
+          curl --fail --location --retry 5 --retry-all-errors \
+            'https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl?download=true' \
+            -o corpus/dolly/databricks-dolly-15k.jsonl
+          curl --fail --location --retry 5 --retry-all-errors \
+            'https://huggingface.co/datasets/OpenAssistant/oasst1/resolve/main/2023-04-12_oasst_all.messages.jsonl.gz?download=true' \
+            -o corpus/oasst/2023-04-12_oasst_all.messages.jsonl.gz
+          curl --fail --location --retry 5 --retry-all-errors \
+            'https://huggingface.co/datasets/OpenAssistant/oasst1/resolve/main/LICENSE?download=true' \
+            -o corpus/oasst/LICENSE
+          curl --fail --location --retry 5 --retry-all-errors \
+            'https://raw.githubusercontent.com/Currie32/Chatbot-from-Movie-Dialogue/702df55ff6e2dbe4c7c1771ec25cdf44893df159/movie_lines.txt.zip' \
+            -o corpus/cornell/movie_lines.txt.zip
+          curl --fail --location --retry 5 --retry-all-errors \
+            'https://raw.githubusercontent.com/Currie32/Chatbot-from-Movie-Dialogue/702df55ff6e2dbe4c7c1771ec25cdf44893df159/movie_conversations.txt.zip' \
+            -o corpus/cornell/movie_conversations.txt.zip
+          curl --fail --location --retry 5 --retry-all-errors \
+            'https://raw.githubusercontent.com/openai/grade-school-math/3101c7d5072418e28b9008a6636bde82a006892c/grade_school_math/data/train.jsonl' \
+            -o corpus/gsm8k/train.jsonl
+          curl --fail --location --retry 5 --retry-all-errors \
+            'https://raw.githubusercontent.com/openai/grade-school-math/3101c7d5072418e28b9008a6636bde82a006892c/grade_school_math/data/test.jsonl' \
+            -o corpus/gsm8k/test.jsonl
+      - name: Verify pinned files and record provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$ABCD_SHA256  corpus/abcd/abcd_v1.1.json.gz" | sha256sum --check --strict
+          echo "$DOLLY_SHA256  corpus/dolly/databricks-dolly-15k.jsonl" | sha256sum --check --strict
+          echo "$OASST_SHA256  corpus/oasst/2023-04-12_oasst_all.messages.jsonl.gz" | sha256sum --check --strict
+          find corpus -type f -print0 | sort -z | xargs -0 sha256sum > corpus/SHA256SUMS.txt
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, json
+          root = Path('corpus')
+          files = []
+          for path in sorted(p for p in root.rglob('*') if p.is_file() and p.name != 'MANIFEST.json'):
+              files.append({
+                  'path': path.relative_to(root).as_posix(),
+                  'size_bytes': path.stat().st_size,
+                  'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+              })
+          (root / 'MANIFEST.json').write_text(json.dumps({
+              'schema': 'rlai.training-sources.v1',
+              'created_by': 'github-actions',
+              'pinned_sources': True,
+              'files': files,
+          }, indent=2) + '\n', encoding='utf-8')
+          PY
+      - name: Upload verified corpus bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: rlai-training-sources-20260827
+          path: corpus
+          if-no-files-found: error
+          compression-level: 6
+          retention-days: 7
