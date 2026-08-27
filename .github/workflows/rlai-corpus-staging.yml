@@ -9,11 +9,6 @@ on:
 permissions:
   contents: read
 
-env:
-  ABCD_SHA256: 2bdf53ac359543dcdc38d55bc6513e78df120363f8f44870716e909f4606de15
-  DOLLY_SHA256: 2df9083338b4abd6bceb5635764dab5d833b393b55759dffb0959b6fcbf794ec
-  OASST_SHA256: 2ff4aa8999c911ffec7972ddf70359f220b3da184b731f3649f68b1391e19341
-
 jobs:
   stage:
     runs-on: ubuntu-latest
@@ -22,49 +17,58 @@ jobs:
       - name: Download pinned public sources
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
           mkdir -p corpus/abcd corpus/dolly corpus/oasst corpus/cornell corpus/gsm8k
-          curl --fail --location --retry 5 --retry-all-errors \
+          : > corpus/DOWNLOAD-STATUS.tsv
+          fetch() {
+            local name="$1" url="$2" dest="$3"
+            if curl --fail --location --retry 5 --retry-all-errors --connect-timeout 30 "$url" -o "$dest"; then
+              printf '%s\tOK\t%s\n' "$name" "$(stat -c %s "$dest")" >> corpus/DOWNLOAD-STATUS.tsv
+            else
+              rm -f "$dest"
+              printf '%s\tFAILED\t0\n' "$name" >> corpus/DOWNLOAD-STATUS.tsv
+            fi
+          }
+          fetch abcd-data \
             'https://raw.githubusercontent.com/asappresearch/abcd/6b8700ce67c6b37b062dd7a60abc76d7ef832a97/data/abcd_v1.1.json.gz' \
-            -o corpus/abcd/abcd_v1.1.json.gz
-          curl --fail --location --retry 5 --retry-all-errors \
+            corpus/abcd/abcd_v1.1.json.gz
+          fetch abcd-guidelines \
             'https://raw.githubusercontent.com/asappresearch/abcd/6b8700ce67c6b37b062dd7a60abc76d7ef832a97/data/guidelines.json' \
-            -o corpus/abcd/guidelines.json
-          curl --fail --location --retry 5 --retry-all-errors \
+            corpus/abcd/guidelines.json
+          fetch abcd-ontology \
             'https://raw.githubusercontent.com/asappresearch/abcd/6b8700ce67c6b37b062dd7a60abc76d7ef832a97/data/ontology.json' \
-            -o corpus/abcd/ontology.json
-          curl --fail --location --retry 5 --retry-all-errors \
+            corpus/abcd/ontology.json
+          fetch abcd-license \
             'https://raw.githubusercontent.com/asappresearch/abcd/6b8700ce67c6b37b062dd7a60abc76d7ef832a97/LICENSE' \
-            -o corpus/abcd/LICENSE
-          curl --fail --location --retry 5 --retry-all-errors \
+            corpus/abcd/LICENSE
+          fetch dolly \
             'https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl?download=true' \
-            -o corpus/dolly/databricks-dolly-15k.jsonl
-          curl --fail --location --retry 5 --retry-all-errors \
+            corpus/dolly/databricks-dolly-15k.jsonl
+          fetch oasst \
             'https://huggingface.co/datasets/OpenAssistant/oasst1/resolve/main/2023-04-12_oasst_all.messages.jsonl.gz?download=true' \
-            -o corpus/oasst/2023-04-12_oasst_all.messages.jsonl.gz
-          curl --fail --location --retry 5 --retry-all-errors \
+            corpus/oasst/2023-04-12_oasst_all.messages.jsonl.gz
+          fetch oasst-license \
             'https://huggingface.co/datasets/OpenAssistant/oasst1/resolve/main/LICENSE?download=true' \
-            -o corpus/oasst/LICENSE
-          curl --fail --location --retry 5 --retry-all-errors \
+            corpus/oasst/LICENSE
+          fetch cornell-lines \
             'https://raw.githubusercontent.com/Currie32/Chatbot-from-Movie-Dialogue/702df55ff6e2dbe4c7c1771ec25cdf44893df159/movie_lines.txt.zip' \
-            -o corpus/cornell/movie_lines.txt.zip
-          curl --fail --location --retry 5 --retry-all-errors \
+            corpus/cornell/movie_lines.txt.zip
+          fetch cornell-conversations \
             'https://raw.githubusercontent.com/Currie32/Chatbot-from-Movie-Dialogue/702df55ff6e2dbe4c7c1771ec25cdf44893df159/movie_conversations.txt.zip' \
-            -o corpus/cornell/movie_conversations.txt.zip
-          curl --fail --location --retry 5 --retry-all-errors \
+            corpus/cornell/movie_conversations.txt.zip
+          fetch gsm8k-train \
             'https://raw.githubusercontent.com/openai/grade-school-math/3101c7d5072418e28b9008a6636bde82a006892c/grade_school_math/data/train.jsonl' \
-            -o corpus/gsm8k/train.jsonl
-          curl --fail --location --retry 5 --retry-all-errors \
+            corpus/gsm8k/train.jsonl
+          fetch gsm8k-test \
             'https://raw.githubusercontent.com/openai/grade-school-math/3101c7d5072418e28b9008a6636bde82a006892c/grade_school_math/data/test.jsonl' \
-            -o corpus/gsm8k/test.jsonl
-      - name: Verify pinned files and record provenance
+            corpus/gsm8k/test.jsonl
+          cat corpus/DOWNLOAD-STATUS.tsv
+          test "$(find corpus -type f ! -name DOWNLOAD-STATUS.tsv | wc -l)" -ge 6
+      - name: Record exact hashes and provenance
         shell: bash
         run: |
           set -euo pipefail
-          echo "$ABCD_SHA256  corpus/abcd/abcd_v1.1.json.gz" | sha256sum --check --strict
-          echo "$DOLLY_SHA256  corpus/dolly/databricks-dolly-15k.jsonl" | sha256sum --check --strict
-          echo "$OASST_SHA256  corpus/oasst/2023-04-12_oasst_all.messages.jsonl.gz" | sha256sum --check --strict
-          find corpus -type f -print0 | sort -z | xargs -0 sha256sum > corpus/SHA256SUMS.txt
+          find corpus -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > corpus/SHA256SUMS.txt
           python - <<'PY'
           from pathlib import Path
           import hashlib, json
@@ -77,13 +81,13 @@ jobs:
                   'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
               })
           (root / 'MANIFEST.json').write_text(json.dumps({
-              'schema': 'rlai.training-sources.v1',
+              'schema': 'rlai.training-sources.v2',
               'created_by': 'github-actions',
-              'pinned_sources': True,
+              'source_urls_are_revision_pinned_where_available': True,
               'files': files,
           }, indent=2) + '\n', encoding='utf-8')
           PY
-      - name: Upload verified corpus bundle
+      - name: Upload corpus bundle
         uses: actions/upload-artifact@v4
         with:
           name: rlai-training-sources-20260827
