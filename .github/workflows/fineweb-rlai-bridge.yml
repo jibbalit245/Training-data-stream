@@ -1,0 +1,63 @@
+name: FineWeb RLAI bridge
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fineweb-rlai-bridge.yml'
+  workflow_dispatch:
+    inputs:
+      dump:
+        description: FineWeb dump directory
+        required: true
+        default: CC-MAIN-2013-20
+      shard:
+        description: FineWeb parquet filename
+        required: true
+        default: 000_00000.parquet
+      sha256:
+        description: Expected SHA256
+        required: true
+        default: c84e6941d787b50959521df6d6894a91397c8b2db13f8a9c8fe0f8782872e930
+
+permissions:
+  contents: write
+
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      DUMP: ${{ github.event.inputs.dump || 'CC-MAIN-2013-20' }}
+      SHARD: ${{ github.event.inputs.shard || '000_00000.parquet' }}
+      EXPECTED_SHA256: ${{ github.event.inputs.sha256 || 'c84e6941d787b50959521df6d6894a91397c8b2db13f8a9c8fe0f8782872e930' }}
+    steps:
+      - name: Download full FineWeb shard
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://huggingface.co/datasets/HuggingFaceFW/fineweb/resolve/9bb295ddab0e05d785b879661af7260fed5140fc/data/${DUMP}/${SHARD}?download=true"
+          curl --fail --location --retry 8 --retry-all-errors --continue-at - "$URL" -o "$SHARD"
+          echo "${EXPECTED_SHA256}  ${SHARD}" | sha256sum --check --strict
+
+      - name: Split bridge payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir bridge
+          split -b 256M -d -a 3 "$SHARD" "bridge/${SHARD}.part-"
+          sha256sum bridge/* > bridge/SHA256SUMS.txt
+          printf 'dataset=HuggingFaceFW/fineweb\nrevision=9bb295ddab0e05d785b879661af7260fed5140fc\ndump=%s\nshard=%s\nsha256=%s\n' "$DUMP" "$SHARD" "$EXPECTED_SHA256" > bridge/MANIFEST.txt
+          ls -lh bridge
+
+      - name: Publish bridge release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="fineweb-bridge-${DUMP}-${SHARD%.parquet}"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "$TAG" --notes "Temporary byte bridge for verified HuggingFaceFW/fineweb shard ${DUMP}/${SHARD}."
+          fi
+          gh release upload "$TAG" bridge/* --clobber
